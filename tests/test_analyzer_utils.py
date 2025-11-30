@@ -183,9 +183,9 @@ class TestExtractJsonFromText:
 
     def test_extract_json_with_markdown_code_block(self):
         """JSON in markdown code blocks should be extracted."""
-        text = '''```json
+        text = """```json
 {"score": 0.5, "reasoning": "Good data"}
-```'''
+```"""
         result = parsers.extract_json_from_text(text)
         assert result is not None
         assert '"score": 0.5' in result
@@ -216,9 +216,9 @@ class TestParseGeminiResponse:
 
     def test_parse_json_with_extra_text(self):
         """JSON with extra text should still be parsed."""
-        response = '''Based on my analysis:
+        response = """Based on my analysis:
 {"score": 0.5, "reasoning": "Mixed signals"}
-This is my assessment.'''
+This is my assessment."""
         result = parsers.parse_gemini_response(response)
 
         assert result["score"] == 0.5
