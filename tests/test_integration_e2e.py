@@ -378,8 +378,7 @@ class TestEndToEndPipeline:
 
         # Second event: failed, gets 0.0 score
         assert db_events[1].sentiment_score == 0.0
-        raw_response = json.loads(db_events[1].raw_response)
-        assert "error" in raw_response
+        assert "error" in db_events[1].raw_response
 
         # Third event: successful analysis
         assert db_events[2].sentiment_score == -0.3

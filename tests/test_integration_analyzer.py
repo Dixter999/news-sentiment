@@ -180,18 +180,14 @@ class TestAnalyzerToDatabase:
         ):
             analyzer = SentimentAnalyzer()
             result = analyzer.analyze(event.to_dict_for_gemini())
-            event.raw_response = json.dumps(result["raw_response"])
+            event.raw_response = result["raw_response"]
             test_session.commit()
 
         # Assert
         test_session.refresh(event)
         assert event.raw_response is not None
-        assert isinstance(event.raw_response, str)
-
-        # Verify it's valid JSON
-        parsed = json.loads(event.raw_response)
-        assert isinstance(parsed, dict)
-        assert "reasoning" in parsed or "full_response" in parsed
+        assert isinstance(event.raw_response, dict)
+        assert "reasoning" in event.raw_response or "full_response" in event.raw_response
 
     def test_only_unscored_with_actual_analyzed(
         self, test_session: Session, mock_gemini

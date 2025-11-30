@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS economic_events (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
 
     -- Constraints
-    CONSTRAINT chk_impact_values CHECK (impact IN ('high', 'medium', 'low')),
+    CONSTRAINT chk_impact_values CHECK (impact IN ('High', 'Medium', 'Low', 'Holiday')),
     CONSTRAINT uq_economic_events_timestamp_event_currency UNIQUE (timestamp, event_name, currency)
 );
 
