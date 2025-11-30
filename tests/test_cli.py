@@ -159,8 +159,9 @@ class TestMainFunction:
         from news_sentiment.main import main
 
         with patch("sys.argv", ["news-sentiment", "--scrape", "today", "--test-run"]):
-            with patch("news_sentiment.main.scrape_events", return_value=[]):
-                result = main()
+            with patch("news_sentiment.main.ForexFactoryScraper"):
+                with patch("news_sentiment.main.scrape_events", return_value=[]):
+                    result = main()
 
         assert result == 0
 
@@ -171,25 +172,27 @@ class TestMainFunction:
         mock_scrape = MagicMock(return_value=[])
 
         with patch("sys.argv", ["news-sentiment", "--scrape", "week", "--test-run"]):
-            with patch("news_sentiment.main.scrape_events", mock_scrape):
-                main()
+            with patch("news_sentiment.main.ForexFactoryScraper"):
+                with patch("news_sentiment.main.scrape_events", mock_scrape):
+                    main()
 
         mock_scrape.assert_called_once()
-        # Verify mode argument is passed
+        # Verify period argument is passed
         call_args = mock_scrape.call_args
         assert call_args is not None
 
-    def test_main_scrape_today_passes_correct_mode(self):
-        """Test that --scrape today passes 'today' mode to scrape_events."""
+    def test_main_scrape_today_passes_correct_period(self):
+        """Test that --scrape today passes period='today' to scrape_events."""
         from news_sentiment.main import main
 
         mock_scrape = MagicMock(return_value=[])
 
         with patch("sys.argv", ["news-sentiment", "--scrape", "today", "--test-run"]):
-            with patch("news_sentiment.main.scrape_events", mock_scrape):
-                main()
+            with patch("news_sentiment.main.ForexFactoryScraper"):
+                with patch("news_sentiment.main.scrape_events", mock_scrape):
+                    main()
 
-        # Check that mode='today' was passed
+        # Check that period='today' was passed
         call_kwargs = mock_scrape.call_args
         # Either positional or keyword argument
         assert "today" in str(call_kwargs)
@@ -202,9 +205,10 @@ class TestMainFunction:
         mock_store = MagicMock(return_value=1)
 
         with patch("sys.argv", ["news-sentiment", "--scrape", "week"]):
-            with patch("news_sentiment.main.scrape_events", mock_scrape):
-                with patch("news_sentiment.main.store_events", mock_store):
-                    main()
+            with patch("news_sentiment.main.ForexFactoryScraper"):
+                with patch("news_sentiment.main.scrape_events", mock_scrape):
+                    with patch("news_sentiment.main.store_events", mock_store):
+                        main()
 
         mock_store.assert_called_once()
 
@@ -216,9 +220,10 @@ class TestMainFunction:
         mock_store = MagicMock(return_value=1)
 
         with patch("sys.argv", ["news-sentiment", "--scrape", "week", "--test-run"]):
-            with patch("news_sentiment.main.scrape_events", mock_scrape):
-                with patch("news_sentiment.main.store_events", mock_store):
-                    main()
+            with patch("news_sentiment.main.ForexFactoryScraper"):
+                with patch("news_sentiment.main.scrape_events", mock_scrape):
+                    with patch("news_sentiment.main.store_events", mock_store):
+                        main()
 
         mock_store.assert_not_called()
 
@@ -229,8 +234,9 @@ class TestMainFunction:
         mock_analyze = MagicMock(return_value=0)
 
         with patch("sys.argv", ["news-sentiment", "--analyze"]):
-            with patch("news_sentiment.main.analyze_events", mock_analyze):
-                main()
+            with patch("news_sentiment.main.SentimentAnalyzer"):
+                with patch("news_sentiment.main.analyze_events", mock_analyze):
+                    main()
 
         mock_analyze.assert_called_once()
 
@@ -241,14 +247,15 @@ class TestMainFunction:
         mock_analyze = MagicMock(return_value=0)
 
         with patch("sys.argv", ["news-sentiment", "--analyze", "--test-run"]):
-            with patch("news_sentiment.main.analyze_events", mock_analyze):
-                main()
+            with patch("news_sentiment.main.SentimentAnalyzer"):
+                with patch("news_sentiment.main.analyze_events", mock_analyze):
+                    main()
 
         # Verify test_run=True was passed
         call_kwargs = mock_analyze.call_args
         assert call_kwargs is not None
-        # Check for test_run in kwargs or args
-        assert "test_run" in str(call_kwargs) or True in call_kwargs[0] if call_kwargs[0] else True
+        # Check for test_run=True in call
+        assert call_kwargs.kwargs.get("test_run") is True
 
     def test_main_combined_scrape_and_analyze(self):
         """Test that --scrape and --analyze both execute."""
@@ -259,10 +266,14 @@ class TestMainFunction:
         mock_analyze = MagicMock(return_value=1)
 
         with patch("sys.argv", ["news-sentiment", "--scrape", "today", "--analyze"]):
-            with patch("news_sentiment.main.scrape_events", mock_scrape):
-                with patch("news_sentiment.main.store_events", mock_store):
-                    with patch("news_sentiment.main.analyze_events", mock_analyze):
-                        main()
+            with patch("news_sentiment.main.ForexFactoryScraper"):
+                with patch("news_sentiment.main.SentimentAnalyzer"):
+                    with patch("news_sentiment.main.scrape_events", mock_scrape):
+                        with patch("news_sentiment.main.store_events", mock_store):
+                            with patch(
+                                "news_sentiment.main.analyze_events", mock_analyze
+                            ):
+                                main()
 
         mock_scrape.assert_called_once()
         mock_store.assert_called_once()
@@ -276,9 +287,10 @@ class TestMainFunction:
         mock_store = MagicMock(return_value=1)
 
         with patch("sys.argv", ["news-sentiment", "--scrape", "week"]):
-            with patch("news_sentiment.main.scrape_events", mock_scrape):
-                with patch("news_sentiment.main.store_events", mock_store):
-                    main()
+            with patch("news_sentiment.main.ForexFactoryScraper"):
+                with patch("news_sentiment.main.scrape_events", mock_scrape):
+                    with patch("news_sentiment.main.store_events", mock_store):
+                        main()
 
         captured = capsys.readouterr()
         # Should print some progress indication
