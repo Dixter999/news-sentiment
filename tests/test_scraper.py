@@ -295,42 +295,56 @@ class TestForexFactoryScraperBrowserInitialization:
             mock_pw.assert_called_once()
 
     def test_init_browser_launches_chromium(self):
-        """_init_browser should launch Chromium browser."""
+        """_init_browser should launch Chromium browser with stealth args."""
         from news_sentiment.scraper import ForexFactoryScraper
 
         scraper = ForexFactoryScraper()
 
         with patch("news_sentiment.scraper.ff_scraper.sync_playwright") as mock_pw:
-            mock_playwright = MagicMock()
-            mock_pw.return_value.start.return_value = mock_playwright
-            mock_browser = MagicMock()
-            mock_playwright.chromium.launch.return_value = mock_browser
-            mock_browser.new_page.return_value = MagicMock()
+            with patch("news_sentiment.scraper.ff_scraper.Stealth"):
+                mock_playwright = MagicMock()
+                mock_pw.return_value.start.return_value = mock_playwright
+                mock_browser = MagicMock()
+                mock_context = MagicMock()
+                mock_page = MagicMock()
+                mock_playwright.chromium.launch.return_value = mock_browser
+                mock_browser.new_context.return_value = mock_context
+                mock_context.new_page.return_value = mock_page
 
-            scraper._init_browser()
+                scraper._init_browser()
 
-            mock_playwright.chromium.launch.assert_called_once_with(
-                headless=scraper.headless
-            )
+                # Verify browser launched with stealth args
+                mock_playwright.chromium.launch.assert_called_once()
+                call_kwargs = mock_playwright.chromium.launch.call_args[1]
+                assert call_kwargs["headless"] == scraper.headless
+                assert (
+                    "--disable-blink-features=AutomationControlled"
+                    in call_kwargs["args"]
+                )
 
     def test_init_browser_creates_page(self):
-        """_init_browser should create a new page."""
+        """_init_browser should create a new page via context."""
         from news_sentiment.scraper import ForexFactoryScraper
 
         scraper = ForexFactoryScraper()
 
         with patch("news_sentiment.scraper.ff_scraper.sync_playwright") as mock_pw:
-            mock_playwright = MagicMock()
-            mock_pw.return_value.start.return_value = mock_playwright
-            mock_browser = MagicMock()
-            mock_playwright.chromium.launch.return_value = mock_browser
-            mock_page = MagicMock()
-            mock_browser.new_page.return_value = mock_page
+            with patch("news_sentiment.scraper.ff_scraper.Stealth"):
+                mock_playwright = MagicMock()
+                mock_pw.return_value.start.return_value = mock_playwright
+                mock_browser = MagicMock()
+                mock_context = MagicMock()
+                mock_page = MagicMock()
+                mock_playwright.chromium.launch.return_value = mock_browser
+                mock_browser.new_context.return_value = mock_context
+                mock_context.new_page.return_value = mock_page
 
-            scraper._init_browser()
+                scraper._init_browser()
 
-            mock_browser.new_page.assert_called_once()
-            assert scraper._page == mock_page
+                # Verify context created with realistic browser settings
+                mock_browser.new_context.assert_called_once()
+                mock_context.new_page.assert_called_once()
+                assert scraper._page == mock_page
 
 
 class TestForexFactoryScraperClose:

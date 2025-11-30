@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from playwright.sync_api import Page, sync_playwright
+from playwright_stealth import Stealth
 
 
 class ForexFactoryScraper:
@@ -69,15 +70,39 @@ class ForexFactoryScraper:
     def _init_browser(self) -> None:
         """Initialize Playwright browser if not already initialized.
 
-        Creates a Chromium browser instance and a new page.
+        Creates a Chromium browser instance and a new page with stealth mode
+        to bypass Cloudflare and other bot detection.
         """
         if self._browser is not None:
             return
 
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=self.headless)
-        self._page = self._browser.new_page()
+        self._browser = self._playwright.chromium.launch(
+            headless=self.headless,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+            ],
+        )
+
+        # Create context with realistic browser settings
+        context = self._browser.new_context(
+            viewport={"width": 1920, "height": 1080},
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            locale="en-US",
+            timezone_id="America/New_York",
+        )
+        self._page = context.new_page()
         self._page.set_default_timeout(self.timeout)
+
+        # Apply stealth mode to bypass Cloudflare bot detection
+        stealth = Stealth()
+        stealth.apply_stealth_sync(self._page)
 
     def _apply_rate_limit(self) -> None:
         """Apply rate limiting between requests.
@@ -429,11 +454,16 @@ class ForexFactoryScraper:
         url = self._generate_week_url(start_date)
 
         self._apply_rate_limit()
-        self._page.goto(url)
+        self._page.goto(url, wait_until="domcontentloaded")
         self._last_request_time = time.time()
 
-        # Wait for calendar to load
-        self._page.wait_for_selector(".calendar__row", timeout=self.timeout)
+        # Wait for Cloudflare challenge to complete and page to stabilize
+        self._page.wait_for_timeout(3000)
+
+        # Wait for calendar rows to be present
+        self._page.wait_for_selector(
+            ".calendar__row", state="attached", timeout=self.timeout
+        )
 
         return self._parse_calendar_table(self._page, start_date)
 
@@ -457,11 +487,16 @@ class ForexFactoryScraper:
         url = self._generate_day_url(date)
 
         self._apply_rate_limit()
-        self._page.goto(url)
+        self._page.goto(url, wait_until="domcontentloaded")
         self._last_request_time = time.time()
 
-        # Wait for calendar to load
-        self._page.wait_for_selector(".calendar__row", timeout=self.timeout)
+        # Wait for Cloudflare challenge to complete and page to stabilize
+        self._page.wait_for_timeout(3000)
+
+        # Wait for calendar rows to be present
+        self._page.wait_for_selector(
+            ".calendar__row", state="attached", timeout=self.timeout
+        )
 
         return self._parse_calendar_table(self._page, date)
 
