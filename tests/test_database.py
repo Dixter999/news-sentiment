@@ -372,3 +372,246 @@ class TestDatabaseExports:
             from src.news_sentiment.database import get_session
 
         assert callable(get_session)
+
+
+class TestRedditPostModel:
+    """Test RedditPost SQLAlchemy model for storing Reddit post data."""
+
+    def test_reddit_post_has_all_required_columns(self):
+        """RedditPost model should have all required columns."""
+        try:
+            from news_sentiment.database.models import RedditPost
+        except ImportError:
+            from src.news_sentiment.database.models import RedditPost
+
+        # Check that all required columns exist
+        assert hasattr(RedditPost, "id")
+        assert hasattr(RedditPost, "reddit_id")
+        assert hasattr(RedditPost, "subreddit")
+        assert hasattr(RedditPost, "title")
+        assert hasattr(RedditPost, "body")
+        assert hasattr(RedditPost, "url")
+        assert hasattr(RedditPost, "score")
+        assert hasattr(RedditPost, "num_comments")
+        assert hasattr(RedditPost, "flair")
+        assert hasattr(RedditPost, "timestamp")
+        assert hasattr(RedditPost, "sentiment_score")
+        assert hasattr(RedditPost, "raw_response")
+        assert hasattr(RedditPost, "created_at")
+        assert hasattr(RedditPost, "updated_at")
+
+    def test_reddit_post_table_name(self):
+        """RedditPost model should map to 'reddit_posts' table."""
+        try:
+            from news_sentiment.database.models import RedditPost
+        except ImportError:
+            from src.news_sentiment.database.models import RedditPost
+
+        assert RedditPost.__tablename__ == "reddit_posts"
+
+    def test_to_dict_returns_all_fields(self):
+        """to_dict() should return all fields for serialization."""
+        from datetime import datetime, timezone
+
+        try:
+            from news_sentiment.database.models import RedditPost
+        except ImportError:
+            from src.news_sentiment.database.models import RedditPost
+
+        # Create a test instance
+        post = RedditPost(
+            id=1,
+            reddit_id="abc123xyz",
+            subreddit="wallstreetbets",
+            title="GME to the moon!",
+            body="Diamond hands forever",
+            url="https://reddit.com/r/wallstreetbets/comments/abc123xyz",
+            score=1500,
+            num_comments=342,
+            flair="YOLO",
+            timestamp=datetime(2025, 1, 15, 14, 30, 0, tzinfo=timezone.utc),
+            sentiment_score=0.85,
+            raw_response={"analysis": "bullish", "confidence": 0.9},
+            created_at=datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            updated_at=datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+        )
+
+        result = post.to_dict()
+
+        # Verify all fields are present
+        assert "id" in result
+        assert "reddit_id" in result
+        assert "subreddit" in result
+        assert "title" in result
+        assert "body" in result
+        assert "url" in result
+        assert "score" in result
+        assert "num_comments" in result
+        assert "flair" in result
+        assert "timestamp" in result
+        assert "sentiment_score" in result
+        assert "raw_response" in result
+        assert "created_at" in result
+        assert "updated_at" in result
+
+        # Verify values
+        assert result["id"] == 1
+        assert result["reddit_id"] == "abc123xyz"
+        assert result["subreddit"] == "wallstreetbets"
+        assert result["title"] == "GME to the moon!"
+        assert result["body"] == "Diamond hands forever"
+        assert result["score"] == 1500
+        assert result["num_comments"] == 342
+        assert result["flair"] == "YOLO"
+        assert result["sentiment_score"] == 0.85
+
+    def test_to_dict_for_gemini_returns_analysis_fields(self):
+        """to_dict_for_gemini() should return only fields needed for sentiment analysis."""
+        from datetime import datetime, timezone
+
+        try:
+            from news_sentiment.database.models import RedditPost
+        except ImportError:
+            from src.news_sentiment.database.models import RedditPost
+
+        post = RedditPost(
+            id=1,
+            reddit_id="abc123xyz",
+            subreddit="wallstreetbets",
+            title="GME to the moon!",
+            body="Diamond hands forever",
+            url="https://reddit.com/r/wallstreetbets/comments/abc123xyz",
+            score=1500,
+            num_comments=342,
+            flair="YOLO",
+            timestamp=datetime(2025, 1, 15, 14, 30, 0, tzinfo=timezone.utc),
+            sentiment_score=0.85,
+            raw_response={"analysis": "bullish"},
+        )
+
+        result = post.to_dict_for_gemini()
+
+        # Should only include fields needed for Gemini analysis
+        assert "subreddit" in result
+        assert "title" in result
+        assert "body" in result
+        assert "flair" in result
+        assert "score" in result
+        assert "num_comments" in result
+
+        # Should NOT include internal fields
+        assert "id" not in result
+        assert "reddit_id" not in result
+        assert "url" not in result
+        assert "sentiment_score" not in result
+        assert "raw_response" not in result
+        assert "created_at" not in result
+        assert "updated_at" not in result
+        assert "timestamp" not in result
+
+    def test_from_dict_creates_instance(self):
+        """from_dict() class method should create an instance from dictionary."""
+        from datetime import datetime, timezone
+        from typing import Any, Dict
+
+        try:
+            from news_sentiment.database.models import RedditPost
+        except ImportError:
+            from src.news_sentiment.database.models import RedditPost
+
+        data: Dict[str, Any] = {
+            "reddit_id": "xyz789abc",
+            "subreddit": "stocks",
+            "title": "AAPL earnings beat expectations",
+            "body": "Apple reported Q4 earnings above consensus...",
+            "url": "https://reddit.com/r/stocks/comments/xyz789abc",
+            "score": 2500,
+            "num_comments": 450,
+            "flair": "Earnings",
+            "timestamp": datetime(2025, 1, 15, 14, 30, 0, tzinfo=timezone.utc),
+        }
+
+        post = RedditPost.from_dict(data)
+
+        assert isinstance(post, RedditPost)
+        assert post.reddit_id == "xyz789abc"
+        assert post.subreddit == "stocks"
+        assert post.title == "AAPL earnings beat expectations"
+        assert post.body == "Apple reported Q4 earnings above consensus..."
+        assert post.url == "https://reddit.com/r/stocks/comments/xyz789abc"
+        assert post.score == 2500
+        assert post.num_comments == 450
+        assert post.flair == "Earnings"
+        assert post.timestamp == data["timestamp"]
+        # Optional fields should be None
+        assert post.sentiment_score is None
+        assert post.raw_response is None
+
+    def test_from_dict_handles_optional_fields(self):
+        """from_dict() should handle optional fields correctly."""
+        from datetime import datetime, timezone
+        from typing import Any, Dict
+
+        try:
+            from news_sentiment.database.models import RedditPost
+        except ImportError:
+            from src.news_sentiment.database.models import RedditPost
+
+        # Minimal data with optional fields
+        data: Dict[str, Any] = {
+            "reddit_id": "min123",
+            "subreddit": "investing",
+            "title": "Link post with no body",
+            "body": None,  # Link posts have no body
+            "url": "https://reddit.com/r/investing/comments/min123",
+            "score": 100,
+            "num_comments": 25,
+            "flair": None,  # No flair
+            "timestamp": datetime(2025, 1, 15, 14, 30, 0, tzinfo=timezone.utc),
+            "sentiment_score": -0.3,
+            "raw_response": {"sentiment": "bearish"},
+        }
+
+        post = RedditPost.from_dict(data)
+
+        assert post.body is None
+        assert post.flair is None
+        assert post.sentiment_score == -0.3
+        assert post.raw_response == {"sentiment": "bearish"}
+
+    def test_repr_returns_readable_string(self):
+        """__repr__ should return a readable string representation."""
+        from datetime import datetime, timezone
+
+        try:
+            from news_sentiment.database.models import RedditPost
+        except ImportError:
+            from src.news_sentiment.database.models import RedditPost
+
+        post = RedditPost(
+            id=1,
+            reddit_id="abc123",
+            subreddit="wallstreetbets",
+            title="GME to the moon!",
+            timestamp=datetime(2025, 1, 15, 14, 30, 0, tzinfo=timezone.utc),
+        )
+
+        repr_str = repr(post)
+
+        assert "RedditPost" in repr_str
+        assert "id=1" in repr_str
+        assert "abc123" in repr_str
+        assert "wallstreetbets" in repr_str
+
+
+class TestRedditPostExport:
+    """Test that RedditPost is exported from database module."""
+
+    def test_reddit_post_exported_from_database(self):
+        """RedditPost should be exported from database module."""
+        try:
+            from news_sentiment.database import RedditPost
+        except ImportError:
+            from src.news_sentiment.database import RedditPost
+
+        assert RedditPost is not None

@@ -26,7 +26,7 @@ from news_sentiment.database.exceptions import (
 from news_sentiment.database.connection_manager import DatabaseManager
 
 # Models
-from news_sentiment.database.models import Base, EconomicEvent
+from news_sentiment.database.models import Base, EconomicEvent, RedditPost
 
 # Session utilities
 from news_sentiment.database.connection import get_session
@@ -40,6 +40,7 @@ __all__ = [
     # Models
     "Base",
     "EconomicEvent",
+    "RedditPost",
     # Session utilities
     "get_session",
     # Exceptions
