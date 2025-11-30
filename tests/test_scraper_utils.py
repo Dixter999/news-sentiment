@@ -358,13 +358,15 @@ class TestEdgeCases:
         """Handle DST transition in fall.
 
         On November 3, 2024, clocks fall back at 2am.
-        1:30am occurs twice.
+        1:30am occurs twice. Python's zoneinfo defaults to fold=0
+        (the first occurrence, which is still DST/EDT).
+
+        1:30am EDT = 5:30am UTC
         """
-        # After DST (1:30am EST = 6:30am UTC)
         result = convert_et_to_utc("Sun Nov 3", "1:30am", year=2024)
         assert result is not None
-        # Should default to standard time interpretation
-        assert result.hour == 6
+        # Default to first occurrence (EDT = UTC-4)
+        assert result.hour == 5
         assert result.minute == 30
 
     def test_leap_year_february_29(self):
