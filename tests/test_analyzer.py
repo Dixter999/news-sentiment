@@ -5,7 +5,6 @@ This module follows TDD principles - tests are written first to define
 expected behavior before implementation.
 """
 
-import json
 import os
 from unittest.mock import MagicMock, patch
 
