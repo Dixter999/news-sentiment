@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Callable, Type, Optional
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
-from database.exceptions import (
+from news_sentiment.database.exceptions import (
     DataValidationError,
     QueryExecutionError,
     DatabaseConnectionError,

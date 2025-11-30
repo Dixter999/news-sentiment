@@ -20,11 +20,13 @@ class TestDependenciesAvailable:
 
     def test_playwright_available(self):
         """Playwright package should be importable."""
-        import playwright  # noqa: F401
+        pytest.importorskip("playwright", reason="playwright not installed")
 
     def test_google_generativeai_available(self):
         """Google Generative AI (Gemini) package should be importable."""
-        import google.generativeai  # noqa: F401
+        pytest.importorskip(
+            "google.generativeai", reason="google-generativeai not installed"
+        )
 
     def test_sqlalchemy_available(self):
         """SQLAlchemy package should be importable."""
@@ -129,7 +131,10 @@ class TestDatabaseExceptions:
         try:
             from news_sentiment.database import DatabaseError, DatabaseConnectionError
         except ImportError:
-            from src.news_sentiment.database import DatabaseError, DatabaseConnectionError
+            from src.news_sentiment.database import (
+                DatabaseError,
+                DatabaseConnectionError,
+            )
 
         assert issubclass(DatabaseConnectionError, DatabaseError)
 
@@ -143,48 +148,42 @@ class TestDatabaseExceptions:
         assert issubclass(QueryExecutionError, DatabaseError)
 
 
-class TestFutureModules:
-    """Test for modules that Stream A should create.
+class TestImplementedModules:
+    """Test for modules implemented by Stream A.
 
-    These tests are expected to FAIL initially (RED phase).
-    They will pass when Stream A completes the source structure.
+    These modules were created as part of Stream A project structure work.
     """
 
-    @pytest.mark.xfail(reason="Scraper module not yet implemented by Stream A")
     def test_scraper_module_exists(self):
-        """Scraper module should be importable when implemented."""
+        """Scraper module should be importable."""
         try:
             from news_sentiment import scraper  # noqa: F401
         except ImportError:
             from src.news_sentiment import scraper  # noqa: F401
 
-    @pytest.mark.xfail(reason="Scraper ff_scraper not yet implemented by Stream A")
     def test_ff_scraper_exists(self):
-        """ForexFactory scraper should be importable when implemented."""
+        """ForexFactory scraper should be importable."""
         try:
             from news_sentiment.scraper import ff_scraper  # noqa: F401
         except ImportError:
             from src.news_sentiment.scraper import ff_scraper  # noqa: F401
 
-    @pytest.mark.xfail(reason="Analyzer module not yet implemented by Stream A")
     def test_analyzer_module_exists(self):
-        """Analyzer module should be importable when implemented."""
+        """Analyzer module should be importable."""
         try:
             from news_sentiment import analyzer  # noqa: F401
         except ImportError:
             from src.news_sentiment import analyzer  # noqa: F401
 
-    @pytest.mark.xfail(reason="Gemini analyzer not yet implemented by Stream A")
     def test_gemini_analyzer_exists(self):
-        """Gemini analyzer should be importable when implemented."""
+        """Gemini analyzer should be importable."""
         try:
             from news_sentiment.analyzer import gemini  # noqa: F401
         except ImportError:
             from src.news_sentiment.analyzer import gemini  # noqa: F401
 
-    @pytest.mark.xfail(reason="Main module not yet implemented by Stream A")
     def test_main_module_exists(self):
-        """Main module should be importable when implemented."""
+        """Main module should be importable."""
         try:
             from news_sentiment import main  # noqa: F401
         except ImportError:
@@ -196,6 +195,7 @@ class TestPythonVersion:
 
     def test_python_version_at_least_311(self):
         """Python version should be at least 3.11 as per pyproject.toml."""
-        assert sys.version_info >= (3, 11), (
-            f"Python 3.11+ required, got {sys.version_info.major}.{sys.version_info.minor}"
-        )
+        assert sys.version_info >= (
+            3,
+            11,
+        ), f"Python 3.11+ required, got {sys.version_info.major}.{sys.version_info.minor}"

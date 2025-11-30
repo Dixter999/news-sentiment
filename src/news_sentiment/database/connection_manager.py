@@ -13,13 +13,13 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import QueuePool
 
-from database.config import AppConfig
-from database.exceptions import (
+from news_sentiment.database.config import AppConfig
+from news_sentiment.database.exceptions import (
     DatabaseConnectionError,
     QueryExecutionError,
     DataValidationError,
 )
-from database.utils import (
+from news_sentiment.database.utils import (
     validate_timeframe,
     parse_timestamp,
     calculate_expected_candles,
@@ -32,7 +32,7 @@ from database.utils import (
     VALID_TIMEFRAMES,
     TIMEFRAME_MINUTES,
 )
-from database.logger import StructuredLogger
+from news_sentiment.database.logger import StructuredLogger
 
 
 class DatabaseManager:

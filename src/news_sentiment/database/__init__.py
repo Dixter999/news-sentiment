@@ -9,10 +9,10 @@ This module provides:
 """
 
 # Configuration classes
-from database.config import DatabaseConfig, AppConfig
+from news_sentiment.database.config import DatabaseConfig, AppConfig
 
 # Exception classes
-from database.exceptions import (
+from news_sentiment.database.exceptions import (
     DatabaseError,
     DatabaseConnectionError,
     QueryExecutionError,
@@ -22,7 +22,7 @@ from database.exceptions import (
 )
 
 # Connection management
-from database.connection_manager import DatabaseManager
+from news_sentiment.database.connection_manager import DatabaseManager
 
 __all__ = [
     # Configuration

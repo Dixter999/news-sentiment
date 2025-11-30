@@ -89,6 +89,7 @@ def mock_env_vars(clean_env: dict) -> Generator[dict, None, None]:
 # Database fixtures will be added when database module is ready
 # These are placeholders for integration tests
 
+
 @pytest.fixture(scope="function")
 def test_db_engine():
     """Create a test database engine.
