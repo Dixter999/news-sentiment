@@ -8,8 +8,6 @@ TDD RED PHASE: These tests are written FIRST, before implementation.
 """
 
 
-
-
 class TestPackageStructure:
     """Test that the package structure is correct."""
 
