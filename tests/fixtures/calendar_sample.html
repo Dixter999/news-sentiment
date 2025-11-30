@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<!--
+Sample Forex Factory Calendar HTML for offline testing.
+
+This fixture represents a typical week of economic calendar events
+from Forex Factory. It includes various scenarios:
+- High, Medium, Low impact events
+- Events with/without actual values
+- Tentative and All Day events
+- Multiple currencies
+- Date spanning rows
+
+Generated for TDD testing purposes.
+-->
+<html>
+<head>
+    <title>Forex Factory Economic Calendar - Test Fixture</title>
+</head>
+<body>
+<div class="calendar">
+    <table class="calendar__table">
+        <thead>
+            <tr>
+                <th class="calendar__date">Date</th>
+                <th class="calendar__time">Time</th>
+                <th class="calendar__currency">Currency</th>
+                <th class="calendar__impact">Impact</th>
+                <th class="calendar__event">Event</th>
+                <th class="calendar__actual">Actual</th>
+                <th class="calendar__forecast">Forecast</th>
+                <th class="calendar__previous">Previous</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Monday - High impact USD event with all values -->
+            <tr class="calendar__row calendar__row--monday">
+                <td class="calendar__date">
+                    <span class="date">Mon</span>
+                    <span>Nov 25</span>
+                </td>
+                <td class="calendar__time">8:30am</td>
+                <td class="calendar__currency">USD</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-red" title="High Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">Non-Farm Payrolls</span>
+                </td>
+                <td class="calendar__actual">
+                    <span class="actual">200K</span>
+                </td>
+                <td class="calendar__forecast">180K</td>
+                <td class="calendar__previous">150K</td>
+            </tr>
+
+            <!-- Monday - Medium impact EUR event with missing actual -->
+            <tr class="calendar__row">
+                <td class="calendar__date"></td>
+                <td class="calendar__time">10:00am</td>
+                <td class="calendar__currency">EUR</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-ora" title="Medium Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">German Ifo Business Climate</span>
+                </td>
+                <td class="calendar__actual"></td>
+                <td class="calendar__forecast">87.5</td>
+                <td class="calendar__previous">86.9</td>
+            </tr>
+
+            <!-- Monday - Low impact GBP event -->
+            <tr class="calendar__row">
+                <td class="calendar__date"></td>
+                <td class="calendar__time">2:00pm</td>
+                <td class="calendar__currency">GBP</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-yel" title="Low Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">CBI Industrial Trends Orders</span>
+                </td>
+                <td class="calendar__actual">-15</td>
+                <td class="calendar__forecast">-20</td>
+                <td class="calendar__previous">-18</td>
+            </tr>
+
+            <!-- Tuesday - Tentative event -->
+            <tr class="calendar__row calendar__row--tuesday">
+                <td class="calendar__date">
+                    <span class="date">Tue</span>
+                    <span>Nov 26</span>
+                </td>
+                <td class="calendar__time">Tentative</td>
+                <td class="calendar__currency">JPY</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-red" title="High Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">BOJ Monetary Policy Statement</span>
+                </td>
+                <td class="calendar__actual"></td>
+                <td class="calendar__forecast"></td>
+                <td class="calendar__previous"></td>
+            </tr>
+
+            <!-- Tuesday - Event with percentage values -->
+            <tr class="calendar__row">
+                <td class="calendar__date"></td>
+                <td class="calendar__time">8:30am</td>
+                <td class="calendar__currency">USD</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-red" title="High Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">Core PCE Price Index m/m</span>
+                </td>
+                <td class="calendar__actual">0.2%</td>
+                <td class="calendar__forecast">0.3%</td>
+                <td class="calendar__previous">0.2%</td>
+            </tr>
+
+            <!-- Wednesday - All Day event -->
+            <tr class="calendar__row calendar__row--wednesday">
+                <td class="calendar__date">
+                    <span class="date">Wed</span>
+                    <span>Nov 27</span>
+                </td>
+                <td class="calendar__time">All Day</td>
+                <td class="calendar__currency">CAD</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-yel" title="Low Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">Bank Holiday</span>
+                </td>
+                <td class="calendar__actual"></td>
+                <td class="calendar__forecast"></td>
+                <td class="calendar__previous"></td>
+            </tr>
+
+            <!-- Wednesday - AUD event -->
+            <tr class="calendar__row">
+                <td class="calendar__date"></td>
+                <td class="calendar__time">7:30pm</td>
+                <td class="calendar__currency">AUD</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-ora" title="Medium Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">Private Capital Expenditure q/q</span>
+                </td>
+                <td class="calendar__actual">-0.5%</td>
+                <td class="calendar__forecast">0.5%</td>
+                <td class="calendar__previous">1.0%</td>
+            </tr>
+
+            <!-- Thursday - Holiday event (grey impact) -->
+            <tr class="calendar__row calendar__row--thursday">
+                <td class="calendar__date">
+                    <span class="date">Thu</span>
+                    <span>Nov 28</span>
+                </td>
+                <td class="calendar__time">All Day</td>
+                <td class="calendar__currency">USD</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-gra" title="Holiday"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">Thanksgiving Day</span>
+                </td>
+                <td class="calendar__actual"></td>
+                <td class="calendar__forecast"></td>
+                <td class="calendar__previous"></td>
+            </tr>
+
+            <!-- Friday - CHF event with decimal values -->
+            <tr class="calendar__row calendar__row--friday">
+                <td class="calendar__date">
+                    <span class="date">Fri</span>
+                    <span>Nov 29</span>
+                </td>
+                <td class="calendar__time">3:30am</td>
+                <td class="calendar__currency">CHF</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-ora" title="Medium Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">GDP q/q</span>
+                </td>
+                <td class="calendar__actual">0.2%</td>
+                <td class="calendar__forecast">0.3%</td>
+                <td class="calendar__previous">0.5%</td>
+            </tr>
+
+            <!-- Friday - NZD event with large number suffix -->
+            <tr class="calendar__row">
+                <td class="calendar__date"></td>
+                <td class="calendar__time">5:45pm</td>
+                <td class="calendar__currency">NZD</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-yel" title="Low Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">Building Consents m/m</span>
+                </td>
+                <td class="calendar__actual">2.5%</td>
+                <td class="calendar__forecast">1.0%</td>
+                <td class="calendar__previous">-3.5%</td>
+            </tr>
+
+            <!-- Friday - CNY event with large values -->
+            <tr class="calendar__row">
+                <td class="calendar__date"></td>
+                <td class="calendar__time">9:00pm</td>
+                <td class="calendar__currency">CNY</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-red" title="High Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">Manufacturing PMI</span>
+                </td>
+                <td class="calendar__actual">50.5</td>
+                <td class="calendar__forecast">50.0</td>
+                <td class="calendar__previous">49.5</td>
+            </tr>
+
+            <!-- Midnight event (day boundary test) -->
+            <tr class="calendar__row">
+                <td class="calendar__date"></td>
+                <td class="calendar__time">12:00am</td>
+                <td class="calendar__currency">EUR</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-yel" title="Low Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">German Import Prices m/m</span>
+                </td>
+                <td class="calendar__actual">0.1%</td>
+                <td class="calendar__forecast">0.2%</td>
+                <td class="calendar__previous">0.3%</td>
+            </tr>
+
+            <!-- Noon event -->
+            <tr class="calendar__row">
+                <td class="calendar__date"></td>
+                <td class="calendar__time">12:00pm</td>
+                <td class="calendar__currency">USD</td>
+                <td class="calendar__impact">
+                    <span class="icon--ff-impact-ora" title="Medium Impact Expected"></span>
+                </td>
+                <td class="calendar__event">
+                    <span class="calendar__event-title">CB Consumer Confidence</span>
+                </td>
+                <td class="calendar__actual">102.0</td>
+                <td class="calendar__forecast">100.0</td>
+                <td class="calendar__previous">98.7</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

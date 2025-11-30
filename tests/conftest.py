@@ -27,7 +27,7 @@ def pytest_configure(config: pytest.Config) -> None:
     """Configure pytest before running tests.
 
     Loads environment variables from .env.test if it exists,
-    otherwise falls back to .env.
+    otherwise falls back to .env. Also registers custom markers.
     """
     env_test = PROJECT_ROOT / ".env.test"
     env_default = PROJECT_ROOT / ".env"
@@ -36,6 +36,15 @@ def pytest_configure(config: pytest.Config) -> None:
         load_dotenv(env_test)
     elif env_default.exists():
         load_dotenv(env_default)
+
+    # Register custom markers
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
+    config.addinivalue_line(
+        "markers",
+        "integration: marks tests as integration tests requiring external resources",
+    )
 
 
 @pytest.fixture(scope="session")
