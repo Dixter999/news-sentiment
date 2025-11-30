@@ -35,8 +35,18 @@ UTC_TIMEZONE = "UTC"
 
 # Month abbreviations (lowercase) for URL construction
 MONTH_ABBREVS = [
-    "jan", "feb", "mar", "apr", "may", "jun",
-    "jul", "aug", "sep", "oct", "nov", "dec",
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
 ]
 
 # Special time values that cannot be converted to actual times

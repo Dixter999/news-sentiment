@@ -303,8 +303,18 @@ class TestBuildWeekUrl:
     def test_build_url_all_months(self):
         """Test URL generation for all months."""
         expected_months = [
-            "jan", "feb", "mar", "apr", "may", "jun",
-            "jul", "aug", "sep", "oct", "nov", "dec"
+            "jan",
+            "feb",
+            "mar",
+            "apr",
+            "may",
+            "jun",
+            "jul",
+            "aug",
+            "sep",
+            "oct",
+            "nov",
+            "dec",
         ]
         for month_num, expected_abbrev in enumerate(expected_months, 1):
             test_date = datetime(2024, month_num, 15)
@@ -323,9 +333,18 @@ class TestBuildMonthUrl:
     def test_build_month_url_all_months(self):
         """Test URL generation for all months."""
         expected = [
-            (1, "jan"), (2, "feb"), (3, "mar"), (4, "apr"),
-            (5, "may"), (6, "jun"), (7, "jul"), (8, "aug"),
-            (9, "sep"), (10, "oct"), (11, "nov"), (12, "dec"),
+            (1, "jan"),
+            (2, "feb"),
+            (3, "mar"),
+            (4, "apr"),
+            (5, "may"),
+            (6, "jun"),
+            (7, "jul"),
+            (8, "aug"),
+            (9, "sep"),
+            (10, "oct"),
+            (11, "nov"),
+            (12, "dec"),
         ]
         for month_num, abbrev in expected:
             url = build_month_url(2024, month_num)
