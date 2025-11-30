@@ -643,6 +643,8 @@ class TestErrorHandling:
 
     def test_database_error_is_handled(self, mock_session):
         """Database errors from merge propagate to caller."""
+        from datetime import datetime
+
         from news_sentiment.main import store_events
 
         # Errors during merge propagate (caller responsibility to handle)
@@ -650,7 +652,7 @@ class TestErrorHandling:
 
         with patch("news_sentiment.main.get_session", return_value=mock_session):
             with pytest.raises(Exception):
-                store_events([{"event_name": "Test"}])
+                store_events([{"event_name": "Test", "timestamp": datetime.now()}])
 
     def test_analyzer_error_is_handled(self, mock_session_with_unscored, mock_analyzer):
         """Analyzer errors are logged and processing continues."""
@@ -858,6 +860,654 @@ def sample_events() -> List[Dict[str, Any]]:
 # ==============================================================================
 # Additional Edge Case Tests
 # ==============================================================================
+
+
+# ==============================================================================
+# Reddit CLI Argument Parsing Tests
+# ==============================================================================
+
+
+class TestRedditCLIArgumentParsing:
+    """Tests for Reddit CLI argument parsing.
+
+    These tests verify that the CLI correctly parses Reddit-related arguments.
+    """
+
+    def test_reddit_hot_argument(self):
+        """--reddit hot is valid argument."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(["--reddit", "hot"])
+
+        assert args.reddit == "hot"
+
+    def test_reddit_new_argument(self):
+        """--reddit new is valid argument."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(["--reddit", "new"])
+
+        assert args.reddit == "new"
+
+    def test_reddit_top_argument(self):
+        """--reddit top is valid argument."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(["--reddit", "top"])
+
+        assert args.reddit == "top"
+
+    def test_reddit_invalid_argument_raises(self):
+        """--reddit with invalid value should raise error."""
+        from news_sentiment.main import parse_args
+
+        with pytest.raises(SystemExit):
+            parse_args(["--reddit", "invalid"])
+
+    def test_reddit_limit_argument(self):
+        """--reddit-limit accepts integer value."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(["--reddit", "hot", "--reddit-limit", "50"])
+
+        assert args.reddit_limit == 50
+
+    def test_reddit_limit_default(self):
+        """--reddit-limit defaults to 25."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(["--reddit", "hot"])
+
+        assert args.reddit_limit == 25
+
+    def test_subreddits_argument(self):
+        """--subreddits accepts multiple values."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(["--reddit", "hot", "--subreddits", "stocks", "investing"])
+
+        assert args.subreddits == ["stocks", "investing"]
+
+    def test_subreddits_default_is_none(self):
+        """--subreddits defaults to None (uses DEFAULT_SUBREDDITS)."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(["--reddit", "hot"])
+
+        assert args.subreddits is None
+
+    def test_combined_reddit_and_scrape(self):
+        """Can combine --reddit and --scrape."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(["--scrape", "week", "--reddit", "hot"])
+
+        assert args.scrape == "week"
+        assert args.reddit == "hot"
+
+    def test_combined_reddit_and_analyze(self):
+        """Can combine --reddit and --analyze."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(["--reddit", "hot", "--analyze"])
+
+        assert args.reddit == "hot"
+        assert args.analyze is True
+
+    def test_all_reddit_flags_combined(self):
+        """Can combine all Reddit flags."""
+        from news_sentiment.main import parse_args
+
+        args = parse_args(
+            [
+                "--reddit",
+                "top",
+                "--reddit-limit",
+                "100",
+                "--subreddits",
+                "wallstreetbets",
+                "stocks",
+                "--test-run",
+            ]
+        )
+
+        assert args.reddit == "top"
+        assert args.reddit_limit == 100
+        assert args.subreddits == ["wallstreetbets", "stocks"]
+        assert args.test_run is True
+
+
+# ==============================================================================
+# scrape_reddit_posts Function Tests
+# ==============================================================================
+
+
+class TestScrapeRedditPosts:
+    """Tests for scrape_reddit_posts function.
+
+    These tests verify that scrape_reddit_posts correctly calls the Reddit scraper
+    based on the specified mode.
+    """
+
+    def test_scrape_hot_calls_scrape_hot(self, mock_reddit_scraper):
+        """'hot' mode calls scraper.scrape_hot()."""
+        from news_sentiment.main import scrape_reddit_posts
+
+        scrape_reddit_posts(mock_reddit_scraper, mode="hot")
+
+        mock_reddit_scraper.scrape_hot.assert_called_once()
+
+    def test_scrape_new_calls_scrape_new(self, mock_reddit_scraper):
+        """'new' mode calls scraper.scrape_new()."""
+        from news_sentiment.main import scrape_reddit_posts
+
+        scrape_reddit_posts(mock_reddit_scraper, mode="new")
+
+        mock_reddit_scraper.scrape_new.assert_called_once()
+
+    def test_scrape_top_calls_scrape_top(self, mock_reddit_scraper):
+        """'top' mode calls scraper.scrape_top()."""
+        from news_sentiment.main import scrape_reddit_posts
+
+        scrape_reddit_posts(mock_reddit_scraper, mode="top")
+
+        mock_reddit_scraper.scrape_top.assert_called_once()
+
+    def test_scrape_returns_list_of_posts(self, mock_reddit_scraper):
+        """scrape_reddit_posts returns list of post dicts."""
+        from news_sentiment.main import scrape_reddit_posts
+
+        result = scrape_reddit_posts(mock_reddit_scraper, mode="hot")
+
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert all(isinstance(post, dict) for post in result)
+
+    def test_scrape_passes_limit_parameter(self, mock_reddit_scraper):
+        """Limit parameter is passed to scraper."""
+        from news_sentiment.main import scrape_reddit_posts
+
+        scrape_reddit_posts(mock_reddit_scraper, mode="hot", limit=50)
+
+        mock_reddit_scraper.scrape_hot.assert_called_once_with(limit=50)
+
+    def test_scrape_default_limit_is_25(self, mock_reddit_scraper):
+        """Default limit is 25."""
+        from news_sentiment.main import scrape_reddit_posts
+
+        scrape_reddit_posts(mock_reddit_scraper, mode="hot")
+
+        mock_reddit_scraper.scrape_hot.assert_called_once_with(limit=25)
+
+    def test_scrape_default_mode_is_hot(self, mock_reddit_scraper):
+        """Default mode should be 'hot'."""
+        from news_sentiment.main import scrape_reddit_posts
+
+        scrape_reddit_posts(mock_reddit_scraper)
+
+        mock_reddit_scraper.scrape_hot.assert_called_once()
+
+    def test_scrape_invalid_mode_raises_error(self, mock_reddit_scraper):
+        """Invalid mode should raise ValueError."""
+        from news_sentiment.main import scrape_reddit_posts
+
+        with pytest.raises(ValueError):
+            scrape_reddit_posts(mock_reddit_scraper, mode="invalid")
+
+
+# ==============================================================================
+# store_reddit_posts Function Tests
+# ==============================================================================
+
+
+class TestStoreRedditPosts:
+    """Tests for store_reddit_posts function.
+
+    These tests verify that store_reddit_posts correctly stores posts in the database.
+    """
+
+    def test_stores_posts_in_database(self, mock_session, sample_reddit_posts):
+        """Stores posts using session.merge()."""
+        from news_sentiment.main import store_reddit_posts
+
+        with patch("news_sentiment.main.get_session", return_value=mock_session):
+            store_reddit_posts(sample_reddit_posts)
+
+        # Verify merge was called for each post
+        assert mock_session.__enter__.return_value.merge.call_count == len(
+            sample_reddit_posts
+        )
+
+    def test_uses_context_manager(self, mock_session, sample_reddit_posts):
+        """Uses get_session context manager for transaction handling."""
+        from news_sentiment.main import store_reddit_posts
+
+        with patch("news_sentiment.main.get_session", return_value=mock_session):
+            store_reddit_posts(sample_reddit_posts)
+
+        # Verify context manager was used (enter and exit called)
+        mock_session.__enter__.assert_called_once()
+        mock_session.__exit__.assert_called_once()
+
+    def test_returns_count(self, mock_session, sample_reddit_posts):
+        """Returns number of posts stored."""
+        from news_sentiment.main import store_reddit_posts
+
+        with patch("news_sentiment.main.get_session", return_value=mock_session):
+            result = store_reddit_posts(sample_reddit_posts)
+
+        assert result == len(sample_reddit_posts)
+
+    def test_empty_posts_returns_zero(self, mock_session):
+        """Empty posts list returns 0."""
+        from news_sentiment.main import store_reddit_posts
+
+        with patch("news_sentiment.main.get_session", return_value=mock_session):
+            result = store_reddit_posts([])
+
+        assert result == 0
+
+    def test_creates_reddit_post_models(self, mock_session, sample_reddit_posts):
+        """Creates RedditPost model instances from dicts using from_dict."""
+        from news_sentiment.main import store_reddit_posts
+
+        with patch("news_sentiment.main.get_session", return_value=mock_session):
+            with patch("news_sentiment.main.RedditPost") as mock_post_class:
+                mock_post_class.from_dict.return_value = MagicMock()
+                store_reddit_posts(sample_reddit_posts)
+
+        # Verify RedditPost.from_dict was called for each post
+        assert mock_post_class.from_dict.call_count == len(sample_reddit_posts)
+
+    def test_uses_merge_for_upsert(self, mock_session, sample_reddit_posts):
+        """Uses session.merge() for upsert behavior."""
+        from news_sentiment.main import store_reddit_posts
+
+        with patch("news_sentiment.main.get_session", return_value=mock_session):
+            store_reddit_posts(sample_reddit_posts)
+
+        # Verify merge (not add) was called
+        session_ctx = mock_session.__enter__.return_value
+        assert session_ctx.merge.called
+        assert not session_ctx.add.called
+
+
+# ==============================================================================
+# analyze_reddit_posts Function Tests
+# ==============================================================================
+
+
+class TestAnalyzeRedditPosts:
+    """Tests for analyze_reddit_posts function.
+
+    These tests verify that analyze_reddit_posts correctly analyzes unscored posts.
+    """
+
+    def test_queries_unscored_posts(self, mock_session, mock_analyzer):
+        """Queries posts with None sentiment_score."""
+        from news_sentiment.main import analyze_reddit_posts
+
+        with patch("news_sentiment.main.get_session", return_value=mock_session):
+            analyze_reddit_posts(mock_analyzer)
+
+        # Verify query was made for unscored posts
+        session_ctx = mock_session.__enter__.return_value
+        session_ctx.query.assert_called()
+
+    def test_calls_analyzer_for_each_post(
+        self, mock_session_with_unscored_posts, mock_analyzer
+    ):
+        """Calls analyzer.analyze() for each unscored post."""
+        from news_sentiment.main import analyze_reddit_posts
+
+        with patch(
+            "news_sentiment.main.get_session",
+            return_value=mock_session_with_unscored_posts,
+        ):
+            analyze_reddit_posts(mock_analyzer)
+
+        # Should have called analyze for each unscored post
+        assert mock_analyzer.analyze.call_count > 0
+
+    def test_updates_sentiment_score(
+        self, mock_session_with_unscored_posts, mock_analyzer
+    ):
+        """Updates post.sentiment_score with analysis result."""
+        from news_sentiment.main import analyze_reddit_posts
+
+        with patch(
+            "news_sentiment.main.get_session",
+            return_value=mock_session_with_unscored_posts,
+        ):
+            analyze_reddit_posts(mock_analyzer)
+
+        # Verify sentiment_score was updated
+        session_ctx = mock_session_with_unscored_posts.__enter__.return_value
+        unscored_posts = session_ctx.query.return_value.filter.return_value.all()
+        for post in unscored_posts:
+            assert hasattr(post, "sentiment_score")
+
+    def test_updates_raw_response(
+        self, mock_session_with_unscored_posts, mock_analyzer
+    ):
+        """Updates post.raw_response with full analysis response."""
+        from news_sentiment.main import analyze_reddit_posts
+
+        with patch(
+            "news_sentiment.main.get_session",
+            return_value=mock_session_with_unscored_posts,
+        ):
+            analyze_reddit_posts(mock_analyzer)
+
+        # Verify raw_response was stored
+        session_ctx = mock_session_with_unscored_posts.__enter__.return_value
+        unscored_posts = session_ctx.query.return_value.filter.return_value.all()
+        for post in unscored_posts:
+            assert hasattr(post, "raw_response")
+
+    def test_test_run_no_commit(self, mock_session_with_unscored_posts, mock_analyzer):
+        """test_run=True prevents commit."""
+        from news_sentiment.main import analyze_reddit_posts
+
+        with patch(
+            "news_sentiment.main.get_session",
+            return_value=mock_session_with_unscored_posts,
+        ):
+            analyze_reddit_posts(mock_analyzer, test_run=True)
+
+        mock_session_with_unscored_posts.__enter__.return_value.commit.assert_not_called()
+
+    def test_returns_count(self, mock_session_with_unscored_posts, mock_analyzer):
+        """Returns number of posts analyzed."""
+        from news_sentiment.main import analyze_reddit_posts
+
+        with patch(
+            "news_sentiment.main.get_session",
+            return_value=mock_session_with_unscored_posts,
+        ):
+            result = analyze_reddit_posts(mock_analyzer)
+
+        assert isinstance(result, int)
+        assert result > 0
+
+
+# ==============================================================================
+# Reddit Workflow Integration Tests
+# ==============================================================================
+
+
+class TestRedditWorkflowIntegration:
+    """Integration tests for Reddit workflow.
+
+    These tests verify that the complete Reddit pipeline works correctly.
+    """
+
+    def test_scrape_and_store_reddit_workflow(self, mock_reddit_scraper, mock_session):
+        """Reddit Scrape -> Store workflow works."""
+        from news_sentiment.main import scrape_reddit_posts, store_reddit_posts
+
+        # Scrape posts
+        posts = scrape_reddit_posts(mock_reddit_scraper, mode="hot")
+
+        # Store posts
+        with patch("news_sentiment.main.get_session", return_value=mock_session):
+            count = store_reddit_posts(posts)
+
+        assert count == len(posts)
+
+    def test_run_with_reddit_only(self, mock_reddit_scraper, mock_session, capsys):
+        """Run with --reddit only calls scraper and stores."""
+        from news_sentiment.main import run
+
+        with patch.object(sys, "argv", ["main.py", "--reddit", "hot"]):
+            with patch(
+                "news_sentiment.main.RedditScraper", return_value=mock_reddit_scraper
+            ):
+                with patch(
+                    "news_sentiment.main.get_session", return_value=mock_session
+                ):
+                    run()
+
+        mock_reddit_scraper.scrape_hot.assert_called()
+
+    def test_run_with_reddit_and_limit(self, mock_reddit_scraper, mock_session, capsys):
+        """Run with --reddit and --reddit-limit passes limit."""
+        from news_sentiment.main import run
+
+        with patch.object(
+            sys, "argv", ["main.py", "--reddit", "hot", "--reddit-limit", "50"]
+        ):
+            with patch(
+                "news_sentiment.main.RedditScraper", return_value=mock_reddit_scraper
+            ):
+                with patch(
+                    "news_sentiment.main.get_session", return_value=mock_session
+                ):
+                    run()
+
+        mock_reddit_scraper.scrape_hot.assert_called_once_with(limit=50)
+
+    def test_run_with_reddit_and_subreddits(self, mock_session, capsys):
+        """Run with --reddit and --subreddits passes subreddits to scraper."""
+        from news_sentiment.main import run
+
+        mock_reddit_scraper = MagicMock()
+        mock_reddit_scraper.scrape_hot.return_value = []
+
+        with patch.object(
+            sys,
+            "argv",
+            ["main.py", "--reddit", "hot", "--subreddits", "stocks", "investing"],
+        ):
+            with patch(
+                "news_sentiment.main.RedditScraper", return_value=mock_reddit_scraper
+            ) as mock_class:
+                with patch(
+                    "news_sentiment.main.get_session", return_value=mock_session
+                ):
+                    run()
+
+        # Verify RedditScraper was instantiated with custom subreddits
+        mock_class.assert_called_once()
+        call_kwargs = mock_class.call_args.kwargs
+        assert call_kwargs.get("subreddits") == ["stocks", "investing"]
+
+    def test_run_with_reddit_test_run(self, mock_reddit_scraper, mock_session, capsys):
+        """Run with --reddit --test-run skips database storage."""
+        from news_sentiment.main import run
+
+        with patch.object(sys, "argv", ["main.py", "--reddit", "hot", "--test-run"]):
+            with patch(
+                "news_sentiment.main.RedditScraper", return_value=mock_reddit_scraper
+            ):
+                with patch(
+                    "news_sentiment.main.get_session", return_value=mock_session
+                ):
+                    run()
+
+        # Verify scraper was called
+        mock_reddit_scraper.scrape_hot.assert_called()
+        # Verify database merge was NOT called (test run mode)
+        mock_session.__enter__.return_value.merge.assert_not_called()
+
+
+# ==============================================================================
+# Reddit Error Handling Tests
+# ==============================================================================
+
+
+class TestRedditErrorHandling:
+    """Tests for error handling in Reddit workflow."""
+
+    def test_reddit_scraper_error_is_handled(self, mock_reddit_scraper):
+        """Reddit scraper errors are handled gracefully."""
+        from news_sentiment.main import scrape_reddit_posts
+
+        mock_reddit_scraper.scrape_hot.side_effect = Exception("API rate limit")
+
+        with pytest.raises(Exception):
+            scrape_reddit_posts(mock_reddit_scraper, mode="hot")
+
+    def test_reddit_store_error_is_handled(self, mock_session):
+        """Reddit store errors from merge propagate to caller."""
+        from datetime import datetime, timezone
+
+        from news_sentiment.main import store_reddit_posts
+
+        mock_session.__enter__.return_value.merge.side_effect = Exception("DB error")
+
+        with patch("news_sentiment.main.get_session", return_value=mock_session):
+            with pytest.raises(Exception):
+                store_reddit_posts(
+                    [
+                        {
+                            "reddit_id": "test123",
+                            "subreddit": "stocks",
+                            "title": "Test",
+                            "timestamp": datetime.now(timezone.utc),
+                        }
+                    ]
+                )
+
+    def test_reddit_analyzer_error_is_handled(
+        self, mock_session_with_unscored_posts, mock_analyzer
+    ):
+        """Reddit analyzer errors are logged and processing continues."""
+        from news_sentiment.main import analyze_reddit_posts
+
+        mock_analyzer.analyze.side_effect = Exception("API error")
+
+        with patch(
+            "news_sentiment.main.get_session",
+            return_value=mock_session_with_unscored_posts,
+        ):
+            # Should NOT raise - continues processing other posts
+            result = analyze_reddit_posts(mock_analyzer)
+            # Returns 0 since all posts failed
+            assert result == 0
+
+
+# ==============================================================================
+# Additional Reddit Fixtures
+# ==============================================================================
+
+
+@pytest.fixture
+def mock_reddit_scraper():
+    """Create a mock RedditScraper."""
+    mock = MagicMock()
+    mock.scrape_hot.return_value = [
+        {
+            "reddit_id": "abc123",
+            "subreddit": "wallstreetbets",
+            "title": "GME to the moon!",
+            "body": "Diamond hands forever",
+            "url": "https://reddit.com/r/wallstreetbets/comments/abc123",
+            "score": 1500,
+            "num_comments": 200,
+            "flair": "Discussion",
+            "timestamp": datetime(2025, 11, 30, 8, 30),
+        },
+        {
+            "reddit_id": "def456",
+            "subreddit": "stocks",
+            "title": "AAPL earnings analysis",
+            "body": "Here's my take on Apple's Q4...",
+            "url": "https://reddit.com/r/stocks/comments/def456",
+            "score": 500,
+            "num_comments": 75,
+            "flair": "Analysis",
+            "timestamp": datetime(2025, 11, 30, 10, 0),
+        },
+    ]
+    mock.scrape_new.return_value = [
+        {
+            "reddit_id": "ghi789",
+            "subreddit": "investing",
+            "title": "New ETF recommendations",
+            "body": "Looking for diversified ETFs...",
+            "url": "https://reddit.com/r/investing/comments/ghi789",
+            "score": 50,
+            "num_comments": 20,
+            "flair": "Advice",
+            "timestamp": datetime(2025, 11, 30, 14, 30),
+        }
+    ]
+    mock.scrape_top.return_value = mock.scrape_hot.return_value
+    return mock
+
+
+@pytest.fixture
+def mock_session_with_unscored_posts():
+    """Create a mock database session with unscored Reddit posts."""
+    mock = MagicMock()
+    session_ctx = MagicMock()
+
+    # Create mock unscored posts
+    unscored_post_1 = MagicMock()
+    unscored_post_1.title = "GME to the moon!"
+    unscored_post_1.sentiment_score = None
+    unscored_post_1.body = "Diamond hands forever"
+    unscored_post_1.to_dict_for_gemini.return_value = {
+        "subreddit": "wallstreetbets",
+        "title": "GME to the moon!",
+        "body": "Diamond hands forever",
+        "flair": "Discussion",
+        "score": 1500,
+        "num_comments": 200,
+    }
+
+    unscored_post_2 = MagicMock()
+    unscored_post_2.title = "AAPL earnings analysis"
+    unscored_post_2.sentiment_score = None
+    unscored_post_2.body = "Here's my take on Apple's Q4..."
+    unscored_post_2.to_dict_for_gemini.return_value = {
+        "subreddit": "stocks",
+        "title": "AAPL earnings analysis",
+        "body": "Here's my take on Apple's Q4...",
+        "flair": "Analysis",
+        "score": 500,
+        "num_comments": 75,
+    }
+
+    # Set up query chain to return unscored posts
+    session_ctx.query.return_value.filter.return_value.all.return_value = [
+        unscored_post_1,
+        unscored_post_2,
+    ]
+
+    mock.__enter__ = MagicMock(return_value=session_ctx)
+    mock.__exit__ = MagicMock(return_value=False)
+    return mock
+
+
+@pytest.fixture
+def sample_reddit_posts() -> List[Dict[str, Any]]:
+    """Create sample Reddit post data for testing."""
+    return [
+        {
+            "reddit_id": "abc123",
+            "subreddit": "wallstreetbets",
+            "title": "GME to the moon!",
+            "body": "Diamond hands forever",
+            "url": "https://reddit.com/r/wallstreetbets/comments/abc123",
+            "score": 1500,
+            "num_comments": 200,
+            "flair": "Discussion",
+            "timestamp": datetime(2025, 11, 30, 8, 30),
+        },
+        {
+            "reddit_id": "def456",
+            "subreddit": "stocks",
+            "title": "AAPL earnings analysis",
+            "body": "Here's my take on Apple's Q4...",
+            "url": "https://reddit.com/r/stocks/comments/def456",
+            "score": 500,
+            "num_comments": 75,
+            "flair": "Analysis",
+            "timestamp": datetime(2025, 11, 30, 10, 0),
+        },
+    ]
 
 
 class TestEdgeCases:
