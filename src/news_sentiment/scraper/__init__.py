@@ -24,6 +24,7 @@ from news_sentiment.scraper.constants import (
     WEEK_URL_PATTERN,
 )
 from news_sentiment.scraper.ff_scraper import ForexFactoryScraper
+from news_sentiment.scraper.reddit_scraper import RedditScraper
 from news_sentiment.scraper.utils import (
     build_month_url,
     build_week_url,
@@ -33,8 +34,9 @@ from news_sentiment.scraper.utils import (
 )
 
 __all__ = [
-    # Main scraper class
+    # Main scraper classes
     "ForexFactoryScraper",
+    "RedditScraper",
     # Utility functions
     "build_month_url",
     "build_week_url",
