@@ -1067,14 +1067,19 @@ class TestStoreRedditPosts:
     """
 
     def test_stores_posts_in_database(self, mock_session, sample_reddit_posts):
-        """Stores posts using session.merge()."""
+        """Stores new posts using session.add() when they don't exist."""
         from news_sentiment.main import store_reddit_posts
+
+        # Mock query to return None (post doesn't exist)
+        mock_session.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+            None
+        )
 
         with patch("news_sentiment.main.get_session", return_value=mock_session):
             store_reddit_posts(sample_reddit_posts)
 
-        # Verify merge was called for each post
-        assert mock_session.__enter__.return_value.merge.call_count == len(
+        # Verify add was called for each new post
+        assert mock_session.__enter__.return_value.add.call_count == len(
             sample_reddit_posts
         )
 
@@ -1107,29 +1112,44 @@ class TestStoreRedditPosts:
 
         assert result == 0
 
-    def test_creates_reddit_post_models(self, mock_session, sample_reddit_posts):
-        """Creates RedditPost model instances from dicts using from_dict."""
+    def test_creates_reddit_post_models_for_new_posts(
+        self, mock_session, sample_reddit_posts
+    ):
+        """Creates RedditPost model instances for new posts using from_dict."""
         from news_sentiment.main import store_reddit_posts
+
+        # Mock query to return None (posts don't exist)
+        mock_session.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+            None
+        )
 
         with patch("news_sentiment.main.get_session", return_value=mock_session):
             with patch("news_sentiment.main.RedditPost") as mock_post_class:
                 mock_post_class.from_dict.return_value = MagicMock()
                 store_reddit_posts(sample_reddit_posts)
 
-        # Verify RedditPost.from_dict was called for each post
+        # Verify RedditPost.from_dict was called for each new post
         assert mock_post_class.from_dict.call_count == len(sample_reddit_posts)
 
-    def test_uses_merge_for_upsert(self, mock_session, sample_reddit_posts):
-        """Uses session.merge() for upsert behavior."""
+    def test_updates_existing_posts(self, mock_session, sample_reddit_posts):
+        """Updates existing posts instead of inserting duplicates."""
         from news_sentiment.main import store_reddit_posts
+
+        # Mock query to return existing posts
+        existing_post = MagicMock()
+        existing_post.subreddit = "old_subreddit"
+        mock_session.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+            existing_post
+        )
 
         with patch("news_sentiment.main.get_session", return_value=mock_session):
             store_reddit_posts(sample_reddit_posts)
 
-        # Verify merge (not add) was called
+        # Verify add was NOT called (updates existing)
         session_ctx = mock_session.__enter__.return_value
-        assert session_ctx.merge.called
         assert not session_ctx.add.called
+        # Verify existing post was updated
+        assert existing_post.subreddit == sample_reddit_posts[-1]["subreddit"]
 
 
 # ==============================================================================
@@ -1349,12 +1369,16 @@ class TestRedditErrorHandling:
             scrape_reddit_posts(mock_reddit_scraper, mode="hot")
 
     def test_reddit_store_error_is_handled(self, mock_session):
-        """Reddit store errors from merge propagate to caller."""
+        """Reddit store errors from add propagate to caller."""
         from datetime import datetime, timezone
 
         from news_sentiment.main import store_reddit_posts
 
-        mock_session.__enter__.return_value.merge.side_effect = Exception("DB error")
+        # Mock query to return None (new post) and add to raise error
+        mock_session.__enter__.return_value.query.return_value.filter.return_value.first.return_value = (
+            None
+        )
+        mock_session.__enter__.return_value.add.side_effect = Exception("DB error")
 
         with patch("news_sentiment.main.get_session", return_value=mock_session):
             with pytest.raises(Exception):

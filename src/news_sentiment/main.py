@@ -177,13 +177,13 @@ def scrape_reddit_posts(
 def store_reddit_posts(posts: List[Dict[str, Any]]) -> int:
     """Store scraped Reddit posts in the database.
 
-    Uses merge (upsert) to handle both new and existing posts.
+    Uses upsert logic: updates existing posts (by reddit_id) or inserts new ones.
 
     Args:
         posts: List of post dictionaries to store
 
     Returns:
-        Number of posts stored
+        Number of posts stored (new + updated)
     """
     if not posts:
         return 0
@@ -191,8 +191,32 @@ def store_reddit_posts(posts: List[Dict[str, Any]]) -> int:
     stored_count = 0
     with get_session() as session:
         for post_data in posts:
-            post = RedditPost.from_dict(post_data)
-            session.merge(post)
+            reddit_id = post_data.get("reddit_id")
+            if not reddit_id:
+                continue
+
+            # Check if post already exists
+            existing = (
+                session.query(RedditPost)
+                .filter(RedditPost.reddit_id == reddit_id)
+                .first()
+            )
+
+            if existing:
+                # Update existing post (keep sentiment_score if already analyzed)
+                existing.subreddit = post_data.get("subreddit", existing.subreddit)
+                existing.title = post_data.get("title", existing.title)
+                existing.body = post_data.get("body", existing.body)
+                existing.url = post_data.get("url", existing.url)
+                existing.score = post_data.get("score", existing.score)
+                existing.num_comments = post_data.get("num_comments", existing.num_comments)
+                existing.flair = post_data.get("flair", existing.flair)
+                existing.timestamp = post_data.get("timestamp", existing.timestamp)
+            else:
+                # Insert new post
+                post = RedditPost.from_dict(post_data)
+                session.add(post)
+
             stored_count += 1
 
     return stored_count
