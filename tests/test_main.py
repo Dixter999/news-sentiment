@@ -19,7 +19,7 @@ Test categories:
 import sys
 from datetime import datetime
 from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -327,14 +327,16 @@ class TestStoreEvents:
             sample_events
         )
 
-    def test_commits_transaction(self, mock_session, sample_events):
-        """Commits the transaction after storing."""
+    def test_uses_context_manager(self, mock_session, sample_events):
+        """Uses get_session context manager for transaction handling."""
         from news_sentiment.main import store_events
 
         with patch("news_sentiment.main.get_session", return_value=mock_session):
             store_events(sample_events)
 
-        mock_session.__enter__.return_value.commit.assert_called_once()
+        # Verify context manager was used (enter and exit called)
+        mock_session.__enter__.assert_called_once()
+        mock_session.__exit__.assert_called_once()
 
     def test_returns_count(self, mock_session, sample_events):
         """Returns number of events stored."""
@@ -355,15 +357,16 @@ class TestStoreEvents:
         assert result == 0
 
     def test_creates_economic_event_models(self, mock_session, sample_events):
-        """Creates EconomicEvent model instances from dicts."""
+        """Creates EconomicEvent model instances from dicts using from_dict."""
         from news_sentiment.main import store_events
 
         with patch("news_sentiment.main.get_session", return_value=mock_session):
             with patch("news_sentiment.main.EconomicEvent") as mock_event_class:
+                mock_event_class.from_dict.return_value = MagicMock()
                 store_events(sample_events)
 
-        # Verify EconomicEvent was instantiated for each event
-        assert mock_event_class.call_count == len(sample_events)
+        # Verify EconomicEvent.from_dict was called for each event
+        assert mock_event_class.from_dict.call_count == len(sample_events)
 
     def test_uses_merge_for_upsert(self, mock_session, sample_events):
         """Uses session.merge() for upsert behavior."""
@@ -444,8 +447,10 @@ class TestAnalyzeEvents:
         for event in unscored_events:
             assert hasattr(event, "raw_response")
 
-    def test_commits_by_default(self, mock_session_with_unscored, mock_analyzer):
-        """Commits transaction by default."""
+    def test_uses_context_manager_default(
+        self, mock_session_with_unscored, mock_analyzer
+    ):
+        """Uses context manager for transaction handling by default."""
         from news_sentiment.main import analyze_events
 
         with patch(
@@ -453,7 +458,11 @@ class TestAnalyzeEvents:
         ):
             analyze_events(mock_analyzer, test_run=False)
 
-        mock_session_with_unscored.__enter__.return_value.commit.assert_called()
+        # Verify context manager was used (auto-commits on successful exit)
+        mock_session_with_unscored.__enter__.assert_called()
+        mock_session_with_unscored.__exit__.assert_called()
+        # Verify rollback was NOT called (default behavior)
+        mock_session_with_unscored.__enter__.return_value.rollback.assert_not_called()
 
     def test_test_run_no_commit(self, mock_session_with_unscored, mock_analyzer):
         """test_run=True prevents commit."""
@@ -598,9 +607,7 @@ class TestWorkflowIntegration:
         """Run with --scrape and --analyze does both."""
         from news_sentiment.main import run
 
-        with patch.object(
-            sys, "argv", ["main.py", "--scrape", "week", "--analyze"]
-        ):
+        with patch.object(sys, "argv", ["main.py", "--scrape", "week", "--analyze"]):
             with patch(
                 "news_sentiment.main.ForexFactoryScraper", return_value=mock_scraper
             ):
@@ -635,19 +642,18 @@ class TestErrorHandling:
             scrape_events(mock_scraper, mode="week")
 
     def test_database_error_is_handled(self, mock_session):
-        """Database errors are handled gracefully."""
+        """Database errors from merge propagate to caller."""
         from news_sentiment.main import store_events
 
-        mock_session.__enter__.return_value.commit.side_effect = Exception("DB error")
+        # Errors during merge propagate (caller responsibility to handle)
+        mock_session.__enter__.return_value.merge.side_effect = Exception("DB error")
 
         with patch("news_sentiment.main.get_session", return_value=mock_session):
             with pytest.raises(Exception):
                 store_events([{"event_name": "Test"}])
 
-    def test_analyzer_error_is_handled(
-        self, mock_session_with_unscored, mock_analyzer
-    ):
-        """Analyzer errors are handled gracefully."""
+    def test_analyzer_error_is_handled(self, mock_session_with_unscored, mock_analyzer):
+        """Analyzer errors are logged and processing continues."""
         from news_sentiment.main import analyze_events
 
         mock_analyzer.analyze.side_effect = Exception("API error")
@@ -655,8 +661,10 @@ class TestErrorHandling:
         with patch(
             "news_sentiment.main.get_session", return_value=mock_session_with_unscored
         ):
-            with pytest.raises(Exception):
-                analyze_events(mock_analyzer)
+            # Should NOT raise - continues processing other events
+            result = analyze_events(mock_analyzer)
+            # Returns 0 since all events failed
+            assert result == 0
 
 
 # ==============================================================================
