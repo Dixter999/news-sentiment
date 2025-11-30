@@ -287,3 +287,128 @@ def mock_scraper():
     mock.scrape_calendar.return_value = sample_events
 
     return mock
+
+
+# Reddit-related fixtures for integration tests
+
+
+@pytest.fixture
+def sample_reddit_posts():
+    """Sample Reddit post data for testing.
+
+    Provides a collection of sample Reddit posts from various financial
+    subreddits with different attributes for comprehensive testing.
+
+    Returns:
+        List of dictionaries containing Reddit post data
+    """
+    from datetime import datetime, timezone
+
+    return [
+        {
+            "reddit_id": "abc123",
+            "subreddit": "wallstreetbets",
+            "title": "GME to the moon!",
+            "body": "Diamond hands! This is not financial advice.",
+            "url": "https://reddit.com/r/wallstreetbets/comments/abc123",
+            "score": 1500,
+            "num_comments": 300,
+            "flair": "DD",
+            "timestamp": datetime(2025, 1, 15, 14, 30, 0, tzinfo=timezone.utc),
+        },
+        {
+            "reddit_id": "def456",
+            "subreddit": "stocks",
+            "title": "AAPL earnings analysis",
+            "body": "Apple reported strong earnings this quarter with revenue up 15%.",
+            "url": "https://reddit.com/r/stocks/comments/def456",
+            "score": 500,
+            "num_comments": 150,
+            "flair": "Company Analysis",
+            "timestamp": datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+        },
+        {
+            "reddit_id": "ghi789",
+            "subreddit": "investing",
+            "title": "Long-term ETF strategy discussion",
+            "body": "Diversification is key to building long-term wealth.",
+            "url": "https://reddit.com/r/investing/comments/ghi789",
+            "score": 250,
+            "num_comments": 75,
+            "flair": "Advice",
+            "timestamp": datetime(2025, 1, 15, 8, 30, 0, tzinfo=timezone.utc),
+        },
+    ]
+
+
+@pytest.fixture
+def mock_reddit_scraper(sample_reddit_posts):
+    """Mock RedditScraper for isolation in integration tests.
+
+    Provides a mock scraper that returns predefined Reddit post data,
+    allowing tests to run without actual Reddit API calls.
+
+    Returns:
+        MagicMock configured with sample Reddit posts
+    """
+    from unittest.mock import MagicMock
+
+    mock = MagicMock()
+
+    mock.scrape_hot.return_value = sample_reddit_posts
+    mock.scrape_new.return_value = [sample_reddit_posts[0]]
+    mock.scrape_top.return_value = sample_reddit_posts
+
+    return mock
+
+
+@pytest.fixture
+def mock_praw_reddit():
+    """Mock PRAW Reddit instance for integration tests.
+
+    Creates a factory function that produces mock PRAW submission objects
+    with all necessary attributes for testing the RedditScraper.
+
+    Returns:
+        Function to create mock PRAW submission objects
+    """
+    from unittest.mock import MagicMock
+
+    def create_mock_submission(
+        post_id: str,
+        subreddit: str,
+        title: str,
+        body: str = "",
+        score: int = 100,
+        num_comments: int = 10,
+        flair: str = None,
+        created_utc: float = 1705330200.0,
+    ) -> MagicMock:
+        """Create a mock PRAW submission object.
+
+        Args:
+            post_id: Reddit post ID
+            subreddit: Subreddit name
+            title: Post title
+            body: Post body/selftext
+            score: Net upvotes
+            num_comments: Number of comments
+            flair: Post flair text
+            created_utc: Unix timestamp of post creation
+
+        Returns:
+            MagicMock configured as PRAW Submission
+        """
+        mock_submission = MagicMock()
+        mock_submission.id = post_id
+        mock_submission.subreddit.display_name = subreddit
+        mock_submission.title = title
+        mock_submission.selftext = body
+        mock_submission.url = f"https://reddit.com/r/{subreddit}/comments/{post_id}"
+        mock_submission.score = score
+        mock_submission.num_comments = num_comments
+        mock_submission.link_flair_text = flair
+        mock_submission.created_utc = created_utc
+        return mock_submission
+
+    return create_mock_submission
