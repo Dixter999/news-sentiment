@@ -357,10 +357,15 @@ def main() -> int:
 
     # Handle analysis
     if args.analyze:
-        print("Analyzing unscored events...")
         analyzer = SentimentAnalyzer()
-        analyzed = analyze_events(analyzer, test_run=args.test_run)
-        print(f"Analyzed {analyzed} events")
+
+        print("Analyzing unscored events...")
+        analyzed_events = analyze_events(analyzer, test_run=args.test_run)
+        print(f"Analyzed {analyzed_events} events")
+
+        print("Analyzing unscored Reddit posts...")
+        analyzed_posts = analyze_reddit_posts(analyzer, test_run=args.test_run)
+        print(f"Analyzed {analyzed_posts} posts")
 
     print("Completed successfully")
     return 0
