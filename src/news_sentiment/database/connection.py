@@ -13,6 +13,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+# Default connection pool configuration
+DEFAULT_POOL_SIZE = 5
+DEFAULT_MAX_OVERFLOW = 10
+
 
 def get_database_url() -> str:
     """Get database URL from environment variables.
@@ -47,8 +51,8 @@ def create_db_engine(database_url: str | None = None) -> Engine:
     url = database_url or get_database_url()
     return create_engine(
         url,
-        pool_size=5,
-        max_overflow=10,
+        pool_size=DEFAULT_POOL_SIZE,
+        max_overflow=DEFAULT_MAX_OVERFLOW,
         pool_pre_ping=True,
     )
 
@@ -66,8 +70,16 @@ def _get_engine() -> Engine:
     return _engine
 
 
-def _get_session_maker() -> sessionmaker:
-    """Get or create the session maker."""
+def get_session_maker() -> sessionmaker:
+    """Get or create the session maker.
+
+    Returns:
+        SQLAlchemy sessionmaker instance configured for the database
+
+    Note:
+        Uses lazy initialization - the session maker is created on first call
+        and reused for subsequent calls.
+    """
     global _SessionLocal
     if _SessionLocal is None:
         _SessionLocal = sessionmaker(
@@ -89,7 +101,7 @@ def get_session() -> Generator[Session, None, None]:
         with get_session() as session:
             events = session.query(EconomicEvent).all()
     """
-    session_maker = _get_session_maker()
+    session_maker = get_session_maker()
     session = session_maker()
     try:
         yield session
