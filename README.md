@@ -1,5 +1,13 @@
 # News Sentiment Service
 
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-336791.svg)](https://www.postgresql.org/)
+[![Gemini AI](https://img.shields.io/badge/Gemini-2.0_Flash-4285F4.svg)](https://ai.google.dev/)
+
+> Financial news sentiment aggregation service powered by Google Gemini AI. Collects economic calendar events and Reddit financial discussions to generate trading signals for forex pairs.
+
 A Python service that aggregates economic calendar events from Forex Factory and Reddit financial communities, then analyzes them using Google Gemini AI to generate sentiment scores for trading decisions.
 
 ## Project Overview
