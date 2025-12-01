@@ -1,13 +1,13 @@
 # News Sentiment Service
 
-A Python service that scrapes economic calendar events from Forex Factory and Reddit financial communities, then analyzes them using Google Gemini AI to generate sentiment scores for trading decisions.
+A Python service that aggregates economic calendar events from Forex Factory and Reddit financial communities, then analyzes them using Google Gemini AI to generate sentiment scores for trading decisions.
 
 ## Project Overview
 
 This service provides automated collection and sentiment analysis of financial news and social media content. It:
 
-1. **Scrapes** economic calendar data from [Forex Factory](https://www.forexfactory.com/calendar) using Playwright browser automation
-2. **Scrapes** Reddit posts from financial subreddits (r/wallstreetbets, r/stocks, r/investing, etc.) via PRAW
+1. **Collects** economic calendar data from [Forex Factory](https://www.forexfactory.com/calendar) using Playwright browser automation
+2. **Fetches** Reddit posts from financial subreddits (r/wallstreetbets, r/stocks, r/investing, etc.) via the official Reddit API (PRAW)
 3. **Analyzes** content using Google Gemini 2.0 Flash AI to determine market sentiment impact
 4. **Stores** results in PostgreSQL for downstream trading applications
 
@@ -20,14 +20,14 @@ This service provides automated collection and sentiment analysis of financial n
     |  +------------------+     +------------------+     +---------------+ |
     |  |                  |     |                  |     |               | |
     |  |  Forex Factory   |---->|  Playwright      |---->|   Economic    | |
-    |  |  Calendar        |     |  Scraper         |     |   Events      | |
+    |  |  Calendar        |     |  Collector       |     |   Events      | |
     |  |                  |     |                  |     |               | |
     |  +------------------+     +------------------+     +-------+-------+ |
     |                                                            |         |
     |  +------------------+     +------------------+             |         |
     |  |                  |     |                  |             |         |
     |  |  Reddit API      |---->|  PRAW            |---->+-------+-------+ |
-    |  |  (OAuth2)        |     |  Scraper         |     |               | |
+    |  |  (OAuth2)        |     |  Client          |     |               | |
     |  |                  |     |                  |     |   Gemini      | |
     |  +------------------+     +------------------+     |   Analyzer    | |
     |                                                    |               | |
@@ -42,16 +42,16 @@ This service provides automated collection and sentiment analysis of financial n
 ```
 
 **Data Flow:**
-1. Playwright navigates to Forex Factory and scrapes calendar events
-2. PRAW connects to Reddit API and scrapes posts from financial subreddits
+1. Playwright navigates to Forex Factory and collects calendar events
+2. PRAW connects to Reddit API and fetches posts from financial subreddits
 3. Content is parsed and stored in respective database tables
 4. Gemini 2.0 Flash analyzes content to generate sentiment scores (-1.0 to +1.0)
 5. Scores are stored back to the database for trading strategy consumption
 
 ## Features
 
-- **Economic Calendar Scraping**: Daily, weekly, or monthly event scraping from Forex Factory
-- **Reddit Scraping**: Hot, new, and top posts from multiple financial subreddits
+- **Economic Calendar Aggregation**: Daily, weekly, or monthly event collection from Forex Factory
+- **Reddit Integration**: Hot, new, and top posts from multiple financial subreddits via official API
 - **AI Sentiment Analysis**: Google Gemini 2.0 Flash for intelligent sentiment scoring
 - **Upsert Logic**: Automatic updates for existing records without duplicates
 - **Batch Processing**: Efficient bulk analysis with rate limiting
@@ -69,7 +69,7 @@ cp .env.example .env.docker
 # Run forex sentiment query
 docker compose --profile forex run --rm forex
 
-# Run full scraper pipeline
+# Run full data collection pipeline
 docker compose --profile scraper run --rm scraper
 
 # Interactive CLI
@@ -161,27 +161,27 @@ python -m news_sentiment.main --help
 
 # === Economic Events ===
 
-# Scrape events for the current week
+# Collect events for the current week
 python -m news_sentiment.main --scrape week
 
-# Scrape events for today only
+# Collect events for today only
 python -m news_sentiment.main --scrape today
 
-# Scrape events for the current month
+# Collect events for the current month
 python -m news_sentiment.main --scrape month
 
 # === Reddit Posts ===
 
-# Scrape hot posts from default subreddits
+# Fetch hot posts from default subreddits
 python -m news_sentiment.main --reddit hot
 
-# Scrape new posts
+# Fetch new posts
 python -m news_sentiment.main --reddit new
 
-# Scrape top posts
+# Fetch top posts
 python -m news_sentiment.main --reddit top
 
-# Scrape from specific subreddits with custom limit
+# Fetch from specific subreddits with custom limit
 python -m news_sentiment.main --reddit hot --subreddits wallstreetbets stocks --reddit-limit 50
 
 # === Sentiment Analysis ===
@@ -191,7 +191,7 @@ python -m news_sentiment.main --analyze
 
 # === Combined Operations ===
 
-# Full pipeline: scrape everything and analyze
+# Full pipeline: collect everything and analyze
 python -m news_sentiment.main --scrape week --reddit hot --analyze
 
 # Test run: execute without committing to database
@@ -202,10 +202,10 @@ python -m news_sentiment.main --scrape week --reddit hot --analyze --test-run
 
 | Flag | Description |
 |------|-------------|
-| `--scrape {today,week,month}` | Scrape economic events for the specified period |
-| `--reddit {hot,new,top}` | Scrape Reddit posts using the specified sort mode |
+| `--scrape {today,week,month}` | Collect economic events for the specified period |
+| `--reddit {hot,new,top}` | Fetch Reddit posts using the specified sort mode |
 | `--reddit-limit N` | Number of posts per subreddit (default: 25) |
-| `--subreddits SUB1 SUB2...` | Specific subreddits to scrape |
+| `--subreddits SUB1 SUB2...` | Specific subreddits to fetch from |
 | `--analyze` | Analyze unscored content with Gemini sentiment analysis |
 | `--forex PAIR` | Query forex pair sentiment (e.g., EURUSD, GBPJPY) |
 | `--forex-all` | Show sentiment for all major forex pairs |
@@ -213,7 +213,7 @@ python -m news_sentiment.main --scrape week --reddit hot --analyze --test-run
 
 ### Default Subreddits
 
-When `--subreddits` is not specified, the following are scraped:
+When `--subreddits` is not specified, posts are fetched from:
 - r/wallstreetbets
 - r/stocks
 - r/investing
@@ -255,14 +255,14 @@ Period:     Last 168 hours
 | Service | Command | Description |
 |---------|---------|-------------|
 | `app` | `docker compose run --rm app` | Interactive CLI |
-| `scraper` | `docker compose --profile scraper run --rm scraper` | Full pipeline: scrape + analyze |
+| `scraper` | `docker compose --profile scraper run --rm scraper` | Full pipeline: collect + analyze |
 | `forex` | `docker compose --profile forex run --rm forex` | Query EUR/USD sentiment |
 | `eurusd-monitor` | `docker compose up -d eurusd-monitor` | Continuous EUR/USD monitoring |
 | `postgres` | `docker compose --profile local-db up -d postgres` | Local PostgreSQL |
 
 ### EUR/USD Continuous Monitor
 
-Run a background service that continuously scrapes and analyzes EUR/USD sentiment:
+Run a background service that continuously monitors and analyzes EUR/USD sentiment:
 
 ```bash
 # Start the monitor (runs every 30 minutes)
@@ -276,8 +276,8 @@ docker compose down eurusd-monitor
 ```
 
 The monitor:
-- Scrapes Forex Factory economic events for EUR and USD
-- Scrapes Reddit forex communities (r/Forex, r/forex_trades, r/ForexFactory, r/Economics, r/wallstreetbets)
+- Collects Forex Factory economic events for EUR and USD
+- Fetches posts from Reddit forex communities (r/Forex, r/forex_trades, r/ForexFactory, r/Economics, r/wallstreetbets)
 - Analyzes new content with Gemini AI
 - Displays EUR/USD sentiment with trading signal every 30 minutes
 
@@ -287,7 +287,7 @@ The monitor:
 # Run any CLI command
 docker compose run --rm app python -m news_sentiment.main --scrape today
 
-# Scrape Reddit only
+# Fetch Reddit posts only
 docker compose run --rm app python -m news_sentiment.main --reddit hot
 
 # Query specific forex pair
@@ -323,7 +323,7 @@ This service uses a PostgreSQL database (`ai_model`) for sentiment data storage.
 
 ### economic_events
 
-Stores scraped economic calendar events from Forex Factory.
+Stores economic calendar events collected from Forex Factory.
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
@@ -364,7 +364,7 @@ Stores Reddit posts from financial subreddits with AI-analyzed sentiment.
 | `num_comments` | INTEGER | NULL | Number of comments |
 | `flair` | VARCHAR(100) | NULL | Post flair/tag |
 | `timestamp` | TIMESTAMP | NOT NULL | Post creation time on Reddit |
-| `fetched_at` | TIMESTAMP | NULL | When scraped by this service |
+| `fetched_at` | TIMESTAMP | NULL | When collected by this service |
 | `symbols` | TEXT[] | NULL | Extracted ticker symbols (e.g., ['NVDA', 'AAPL']) |
 | `symbol_sentiments` | JSONB | NULL | Per-symbol sentiment scores |
 | `sentiment_score` | DOUBLE PRECISION | NULL | Overall AI sentiment score (-1.0 to +1.0) |
@@ -376,7 +376,7 @@ Stores Reddit posts from financial subreddits with AI-analyzed sentiment.
 - `idx_reddit_posts_reddit_id` - Fast lookup by Reddit ID
 - `idx_reddit_posts_subreddit` - Filter by subreddit
 - `idx_reddit_posts_timestamp` - Time-based queries
-- `idx_reddit_posts_fetched_at` - Track scraping freshness
+- `idx_reddit_posts_fetched_at` - Track data freshness
 - `idx_reddit_posts_score` - Sort by popularity
 - `idx_reddit_posts_symbols` - GIN index for array search
 - `idx_reddit_posts_subreddit_timestamp` - Composite for subreddit timelines
@@ -467,8 +467,8 @@ $ python scripts/test_pipeline.py
 ============================================================
 
 ✅ Database connection: OK
-✅ ForexFactory scraper: OK
-✅ Reddit scraper: OK
+✅ ForexFactory collector: OK
+✅ Reddit client: OK
 ✅ Reddit storage: OK
 ✅ Sentiment analyzer: OK
 ✅ Full pipeline: OK
@@ -542,8 +542,8 @@ news-sentiment/
 │       │   └── models.py           # SQLAlchemy ORM models
 │       └── scraper/
 │           ├── __init__.py
-│           ├── ff_scraper.py       # Forex Factory scraper
-│           └── reddit_scraper.py   # Reddit PRAW scraper
+│           ├── ff_scraper.py       # Forex Factory data collector
+│           └── reddit_scraper.py   # Reddit API client
 ├── scripts/
 │   └── test_pipeline.py            # Integration test suite
 ├── migrations/
