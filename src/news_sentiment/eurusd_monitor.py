@@ -274,15 +274,18 @@ class EURUSDMonitor:
 
     def _reprocess_failed(self) -> int:
         """Reprocess items that failed due to model errors."""
+        from sqlalchemy import cast, String
+
         try:
             analyzer = SentimentAnalyzer()
             reprocessed = 0
 
             with get_session() as session:
-                # Find Reddit posts with model errors
+                # Find Reddit posts with errors in raw_response (filter in SQL)
                 failed_posts = session.query(RedditPost).filter(
-                    RedditPost.raw_response.isnot(None)
-                ).limit(50).all()
+                    RedditPost.raw_response.isnot(None),
+                    cast(RedditPost.raw_response, String).like('%"error":%')
+                ).limit(20).all()
 
                 posts_to_retry = [
                     p for p in failed_posts
@@ -306,11 +309,12 @@ class EURUSDMonitor:
                     except Exception as e:
                         print(f"[{self._timestamp()}] Reprocess error (post {post.id}): {e}")
 
-                # Find economic events with model errors
+                # Find economic events with errors in raw_response (filter in SQL)
                 failed_events = session.query(EconomicEvent).filter(
                     EconomicEvent.raw_response.isnot(None),
-                    EconomicEvent.currency.in_(["EUR", "USD"])
-                ).limit(50).all()
+                    EconomicEvent.currency.in_(["EUR", "USD"]),
+                    cast(EconomicEvent.raw_response, String).like('%"error":%')
+                ).limit(20).all()
 
                 events_to_retry = [
                     e for e in failed_events
