@@ -25,6 +25,14 @@ from news_sentiment.database import EconomicEvent, RedditPost, get_session
 class EURUSDMonitor:
     """Continuous EUR/USD sentiment monitor."""
 
+    # Error patterns that indicate retryable model errors
+    MODEL_ERROR_PATTERNS = [
+        "is not found for API version",
+        "models/gemini-pro",
+        "deprecated",
+        "404",
+    ]
+
     # Forex-focused subreddits
     FOREX_SUBREDDITS = [
         "Forex",
@@ -59,6 +67,7 @@ class EURUSDMonitor:
         print("EUR/USD SENTIMENT MONITOR")
         print(f"Interval: {self.interval_minutes} minutes | Reddit limit: {self.reddit_limit}/subreddit")
         print(f"Subreddits: {', '.join(self.FOREX_SUBREDDITS)}")
+        print("Auto-reprocess: Enabled (detects and retries model errors)")
         print("=" * 70)
         print(f"[{self._timestamp()}] Monitor started. Press Ctrl+C to stop.\n")
 
@@ -250,6 +259,89 @@ class EURUSDMonitor:
         except Exception as e:
             print(f"[{self._timestamp()}] Sentiment display error: {e}")
 
+    def _is_model_error(self, raw_response: dict | None) -> bool:
+        """Check if raw_response contains a retryable model error."""
+        if not raw_response or not isinstance(raw_response, dict):
+            return False
+
+        error_msg = raw_response.get("error", "")
+        if not error_msg:
+            return False
+
+        error_lower = error_msg.lower()
+        return any(pattern.lower() in error_lower for pattern in self.MODEL_ERROR_PATTERNS)
+
+    def _reprocess_failed(self) -> int:
+        """Reprocess items that failed due to model errors."""
+        try:
+            analyzer = SentimentAnalyzer()
+            reprocessed = 0
+
+            with get_session() as session:
+                # Find Reddit posts with model errors
+                failed_posts = session.query(RedditPost).filter(
+                    RedditPost.raw_response.isnot(None)
+                ).limit(50).all()
+
+                posts_to_retry = [
+                    p for p in failed_posts
+                    if self._is_model_error(p.raw_response)
+                ]
+
+                if posts_to_retry:
+                    print(f"[{self._timestamp()}] Found {len(posts_to_retry)} posts with model errors, reprocessing...")
+
+                for post in posts_to_retry:
+                    try:
+                        result = analyzer.analyze(post.to_dict_for_gemini())
+
+                        # Only update if successful (no error in response)
+                        if not result["raw_response"].get("error"):
+                            post.sentiment_score = result["sentiment_score"]
+                            post.raw_response = result["raw_response"]
+                            reprocessed += 1
+                            print(f"[{self._timestamp()}] ✓ Reprocessed post id={post.id}")
+                        time.sleep(0.3)
+                    except Exception as e:
+                        print(f"[{self._timestamp()}] Reprocess error (post {post.id}): {e}")
+
+                # Find economic events with model errors
+                failed_events = session.query(EconomicEvent).filter(
+                    EconomicEvent.raw_response.isnot(None),
+                    EconomicEvent.currency.in_(["EUR", "USD"])
+                ).limit(50).all()
+
+                events_to_retry = [
+                    e for e in failed_events
+                    if self._is_model_error(e.raw_response)
+                ]
+
+                if events_to_retry:
+                    print(f"[{self._timestamp()}] Found {len(events_to_retry)} events with model errors, reprocessing...")
+
+                for event in events_to_retry:
+                    try:
+                        result = analyzer.analyze(event.to_dict_for_gemini())
+
+                        if not result["raw_response"].get("error"):
+                            event.sentiment_score = result["sentiment_score"]
+                            event.raw_response = result["raw_response"]
+                            reprocessed += 1
+                            print(f"[{self._timestamp()}] ✓ Reprocessed event id={event.id}")
+                        time.sleep(0.3)
+                    except Exception as e:
+                        print(f"[{self._timestamp()}] Reprocess error (event {event.id}): {e}")
+
+                session.commit()
+
+            if reprocessed > 0:
+                print(f"[{self._timestamp()}] Reprocessed {reprocessed} failed items")
+            return reprocessed
+
+        except Exception as e:
+            print(f"[{self._timestamp()}] Reprocess error: {e}")
+            return 0
+
     def run_cycle(self):
         """Run a single monitoring cycle."""
         self.cycle_count += 1
@@ -264,7 +356,10 @@ class EURUSDMonitor:
         # Step 3: Analyze pending content
         self._analyze_pending()
 
-        # Step 4: Display current sentiment
+        # Step 4: Reprocess any failed model errors
+        self._reprocess_failed()
+
+        # Step 5: Display current sentiment
         self._display_sentiment()
 
     def run(self):
