@@ -1,0 +1,94 @@
+version: "3.8"
+
+services:
+  # News Sentiment Service - Interactive CLI
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: news-sentiment-app
+    env_file:
+      - .env.docker
+    volumes:
+      # Mount source for development hot-reload
+      - ./src:/app/src:ro
+    # Override command as needed
+    command: ["python", "-m", "news_sentiment.main", "--help"]
+
+  # Scheduled scraper job - run with: docker compose --profile scraper run --rm scraper
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: news-sentiment-scraper
+    env_file:
+      - .env.docker
+    profiles:
+      - scraper
+    # Full pipeline: scrape events, scrape reddit, analyze
+    command: >
+      python -m news_sentiment.main
+      --scrape week
+      --reddit hot
+      --analyze
+
+  # Forex sentiment query service - run with: docker compose --profile forex run --rm forex
+  forex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: news-sentiment-forex
+    env_file:
+      - .env.docker
+    profiles:
+      - forex
+    # Query EUR/USD sentiment
+    command: ["python", "-m", "news_sentiment.main", "--forex", "EURUSD"]
+
+  # EUR/USD Continuous Monitor - run with: docker compose up -d eurusd-monitor
+  eurusd-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: news-sentiment-eurusd-monitor
+    env_file:
+      - .env.docker
+    volumes:
+      # Mount source for development hot-reload
+      - ./src:/app/src:ro
+    restart: unless-stopped
+    # Continuous monitoring: scrape + analyze every 30 minutes
+    command: >
+      python -m news_sentiment.eurusd_monitor
+      --interval 30
+      --reddit-limit 25
+    healthcheck:
+      test: ["CMD", "python", "-c", "from news_sentiment.database import get_session; get_session()"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # Optional: PostgreSQL for local development
+  postgres:
+    image: postgres:16-alpine
+    container_name: news-sentiment-db
+    environment:
+      POSTGRES_USER: ${AI_MODEL_DB_USER:-ai_model}
+      POSTGRES_PASSWORD: ${AI_MODEL_DB_PASSWORD:-ai_model}
+      POSTGRES_DB: ${AI_MODEL_DB_NAME:-ai_model}
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflict with external DB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_MODEL_DB_USER:-ai_model} -d ${AI_MODEL_DB_NAME:-ai_model}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - local-db
+
+volumes:
+  postgres_data:
+    driver: local
