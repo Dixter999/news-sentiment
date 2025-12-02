@@ -58,8 +58,9 @@ class EURUSDMonitor:
         self.running = False
 
     def _timestamp(self) -> str:
-        """Get current timestamp string."""
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        """Get current timestamp string in UTC."""
+        from datetime import timezone
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     def _print_header(self):
         """Print monitor header."""
