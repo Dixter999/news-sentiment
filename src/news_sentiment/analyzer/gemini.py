@@ -52,7 +52,7 @@ Respond with JSON only:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model_name: str = "gemini-pro",
+        model_name: str = "gemini-2.0-flash",
         max_retries: int = 3,
     ) -> None:
         """Initialize the sentiment analyzer.
@@ -60,7 +60,7 @@ Respond with JSON only:
         Args:
             api_key: Optional API key. If not provided, uses
                     GEMINI_API_KEY environment variable.
-            model_name: Gemini model to use (default: "gemini-pro")
+            model_name: Gemini model to use (default: "gemini-2.0-flash")
             max_retries: Maximum retries for rate-limited requests (default: 3)
 
         Raises:
