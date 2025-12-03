@@ -2,7 +2,7 @@
 # Multi-stage build for optimized production image
 
 # Stage 1: Build stage
-FROM python:3.12-slim as builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir .
 
 # Stage 2: Production stage
-FROM python:3.12-slim as production
+FROM python:3.12-slim AS production
 
 WORKDIR /app
 
