@@ -125,6 +125,11 @@ class TestReprocessingLogic:
     """Test cases for the reprocessing logic."""
 
     @pytest.fixture
+    def mock_session(self):
+        """Create a mock database session."""
+        return MagicMock(spec=Session)
+
+    @pytest.fixture
     def mock_analyzer(self):
         """Create a mock sentiment analyzer."""
         analyzer = MagicMock()
@@ -145,6 +150,16 @@ class TestReprocessingLogic:
             "reasoning": "With no information provided about the event, it is impossible to determine sentiment",
             "sentiment": 0.0
         }
+        # Add to_dict_for_gemini method
+        post.to_dict_for_gemini = Mock(return_value={
+            "title": post.title,
+            "subreddit": post.subreddit,
+            "body": post.body,
+            "url": post.url,
+            "flair": None,
+            "score": None,
+            "num_comments": None
+        })
         return post
 
     def test_reprocess_single_post_success(self, mock_analyzer, failed_post, mock_session):
@@ -165,9 +180,9 @@ class TestReprocessingLogic:
         
         # Should call analyzer with post data
         mock_analyzer.analyze_reddit_post.assert_called_once()
-        call_args = mock_analyzer.analyze_reddit_post.call_args[0][0]
-        assert call_args["title"] == failed_post.title
-        assert call_args["url"] == failed_post.url
+        call_args = mock_analyzer.analyze_reddit_post.call_args
+        assert call_args[0][0]["title"] == failed_post.title
+        assert call_args[0][0]["url"] == failed_post.url
         
         # Should update the post
         assert failed_post.sentiment_score == 0.65
@@ -282,6 +297,11 @@ class TestBatchProcessing:
 
 class TestDryRunMode:
     """Test cases for dry-run mode."""
+
+    @pytest.fixture
+    def mock_session(self):
+        """Create a mock database session."""
+        return MagicMock(spec=Session)
 
     @pytest.fixture
     def failed_posts(self):
@@ -465,6 +485,11 @@ class TestCommandLineInterface:
 class TestIntegrationScenarios:
     """Integration tests for complete reprocessing scenarios."""
 
+    @pytest.fixture
+    def mock_session(self):
+        """Create a mock database session."""
+        return MagicMock(spec=Session)
+
     def test_full_reprocessing_workflow(self, mock_session):
         """Test the complete reprocessing workflow."""
         from scripts.reprocess_failed_images import main
@@ -542,7 +567,7 @@ class TestIntegrationScenarios:
         failed_post.title = "Test"
         failed_post.url = "https://i.redd.it/test.jpg"
         failed_post.sentiment_score = 0.0
-        failed_post.raw_response = {"reasoning": "No information", "sentiment": 0.0}
+        failed_post.raw_response = {"reasoning": "No information provided to analyze", "sentiment": 0.0}
         failed_post.to_dict_for_gemini = Mock(return_value={"title": "Test", "url": failed_post.url})
         
         with patch("scripts.reprocess_failed_images.get_failed_posts") as mock_get:
