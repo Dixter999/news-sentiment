@@ -59,14 +59,14 @@ class TestSentimentAnalyzerInit:
             mock_genai.GenerativeModel.assert_called_once_with("gemini-1.5-pro")
 
     def test_init_default_model(self):
-        """Analyzer uses gemini-pro as default model."""
+        """Analyzer uses gemini-2.0-flash as default model."""
         from news_sentiment.analyzer import SentimentAnalyzer
 
         with patch("news_sentiment.analyzer.gemini.genai") as mock_genai:
             analyzer = SentimentAnalyzer(api_key="test-key")
 
-            assert analyzer.model_name == "gemini-pro"
-            mock_genai.GenerativeModel.assert_called_once_with("gemini-pro")
+            assert analyzer.model_name == "gemini-2.0-flash"
+            mock_genai.GenerativeModel.assert_called_once_with("gemini-2.0-flash")
 
     def test_init_with_custom_max_retries(self):
         """Analyzer initializes with custom max_retries."""
