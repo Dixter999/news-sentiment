@@ -51,6 +51,7 @@ def get_currency_sentiment(
             EconomicEvent.currency == currency,
             EconomicEvent.timestamp >= cutoff,
             EconomicEvent.sentiment_score.isnot(None),
+            EconomicEvent.impact != "Holiday",  # Exclude bank holidays
         )
         .order_by(EconomicEvent.timestamp.desc())
         .all()

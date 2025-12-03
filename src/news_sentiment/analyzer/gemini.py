@@ -392,6 +392,24 @@ Respond with JSON only:
                 - raw_response: Dict with reasoning and full_response
                 - analyzed_image: Boolean indicating if image was analyzed
         """
+        # Pre-filter for minimal content
+        title = post.get("title", "")
+        body = post.get("body", "") or ""
+        
+        # Check for minimal content (less than 20 characters total)
+        total_content = title + body
+        if len(total_content.strip()) < 20:
+            return {
+                "sentiment_score": 0.0,
+                "raw_response": {
+                    "error": "Minimal content - less than 20 characters",
+                    "reasoning": "Content too short for meaningful sentiment analysis",
+                    "full_response": f"Skipped analysis: total content length {len(total_content.strip())} chars",
+                },
+                "analyzed_image": False,
+                "minimal_content_filtered": True,
+            }
+        
         url = post.get("url", "")
         analyzed_image = False
 
@@ -434,7 +452,7 @@ Respond with JSON only:
                     )
                     return result
 
-            # Fallback to text-only analysis (no image URL)
+            # Text-only analysis (no image URL or non-image URL)
             prompt = self._build_reddit_prompt(post)
 
             def generate_content() -> Any:
