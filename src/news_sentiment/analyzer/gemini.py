@@ -7,6 +7,7 @@ using Google's Gemini generative AI model.
 
 import io
 import json
+import logging
 import os
 import re
 import time
@@ -16,6 +17,9 @@ import google.generativeai as genai
 import requests
 from google.api_core.exceptions import ResourceExhausted
 from PIL import Image
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class SentimentAnalyzer:
@@ -264,31 +268,106 @@ Respond with JSON only:
         url_lower = url.lower()
         return any(re.search(pattern, url_lower) for pattern in self.IMAGE_URL_PATTERNS)
 
-    def _download_image(self, url: str, timeout: int = 10) -> Optional[Image.Image]:
-        """Download image from URL.
+    def _download_image(self, url: str, timeout: int = 10, max_retries: int = 3) -> Dict[str, Any]:
+        """Download image from URL with retry logic and structured error handling.
 
         Args:
             url: Image URL
             timeout: Request timeout in seconds
+            max_retries: Maximum number of retry attempts for transient failures
 
         Returns:
-            PIL Image object or None if download fails
+            Dictionary with:
+                - image: PIL Image object if successful
+                - error: True if download failed
+                - error_type: Type of error that occurred
+                - error_message: Error message details
+                - retry_count: Number of retries attempted
         """
-        try:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
-            response = requests.get(url, headers=headers, timeout=timeout)
-            response.raise_for_status()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        
+        # Transient errors that should be retried
+        TRANSIENT_ERRORS = (requests.ConnectionError, requests.Timeout)
+        
+        retry_count = 0
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, headers=headers, timeout=timeout)
+                response.raise_for_status()
 
-            # Load image from bytes
-            image = Image.open(io.BytesIO(response.content))
-            # Convert to RGB if necessary (for RGBA/P mode images)
-            if image.mode in ("RGBA", "P"):
-                image = image.convert("RGB")
-            return image
-        except Exception:
-            return None
+                # Load image from bytes
+                image = Image.open(io.BytesIO(response.content))
+                # Convert to RGB if necessary (for RGBA/P mode images)
+                if image.mode in ("RGBA", "P"):
+                    image = image.convert("RGB")
+                    
+                return {
+                    "image": image,
+                    "error": False,
+                    "retry_count": retry_count
+                }
+                
+            except TRANSIENT_ERRORS as e:
+                # Transient error - retry
+                retry_count += 1
+                last_error = e
+                error_type = e.__class__.__name__
+                error_message = str(e)
+                
+                if attempt < max_retries - 1:
+                    # Will retry, log at debug level
+                    logger.debug(
+                        f"Image download attempt {attempt + 1} failed for {url}: "
+                        f"{error_type}: {error_message}. Retrying..."
+                    )
+                    time.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                    continue
+                else:
+                    # Max retries reached
+                    logger.error(
+                        f"Failed to download image from {url} after {retry_count} retries. "
+                        f"Last error: {error_type}: {error_message}"
+                    )
+                    
+            except requests.HTTPError as e:
+                # Non-transient HTTP error (404, 403, etc.) - don't retry
+                error_type = e.__class__.__name__
+                error_message = str(e)
+                logger.error(
+                    f"Failed to download image from {url}: {error_type}: {error_message}"
+                )
+                return {
+                    "error": True,
+                    "error_type": error_type,
+                    "error_message": error_message,
+                    "retry_count": 0
+                }
+                
+            except Exception as e:
+                # Other unexpected errors - don't retry
+                error_type = e.__class__.__name__
+                error_message = str(e)
+                logger.error(
+                    f"Failed to download image from {url}: {error_type}: {error_message}"
+                )
+                return {
+                    "error": True,
+                    "error_type": error_type,
+                    "error_message": error_message,
+                    "retry_count": 0
+                }
+        
+        # If we get here, all retries failed
+        return {
+            "error": True,
+            "error_type": last_error.__class__.__name__ if last_error else "Unknown",
+            "error_message": str(last_error) if last_error else "Max retries reached",
+            "retry_count": retry_count
+        }
 
     def analyze_reddit_post(
         self,
@@ -319,9 +398,11 @@ Respond with JSON only:
         try:
             # Check if post has an image URL
             if self.is_image_url(url):
-                image = self._download_image(url)
-                if image:
+                download_result = self._download_image(url)
+                
+                if not download_result.get("error"):
                     # Multimodal analysis with image
+                    image = download_result["image"]
                     prompt = self.IMAGE_PROMPT_TEMPLATE.format(
                         title=post.get("title", ""),
                         subreddit=post.get("subreddit", ""),
@@ -335,8 +416,25 @@ Respond with JSON only:
                     result = self._parse_response(response.text)
                     result["analyzed_image"] = True
                     return result
+                else:
+                    # Image download failed, fall through to text-only with failure tracking
+                    # Build prompt with image URL context
+                    prompt = self._build_reddit_prompt(post, image_failed=True, image_url=url)
+                    
+                    def generate_content() -> Any:
+                        return self.model.generate_content(prompt)
 
-            # Fallback to text-only analysis
+                    response = self._retry_with_backoff(generate_content)
+                    result = self._parse_response(response.text)
+                    result["analyzed_image"] = False
+                    result["image_download_failed"] = True
+                    result["failure_reason"] = (
+                        f"{download_result.get('error_type', 'Unknown')}: "
+                        f"{download_result.get('error_message', 'Failed to download image')}"
+                    )
+                    return result
+
+            # Fallback to text-only analysis (no image URL)
             prompt = self._build_reddit_prompt(post)
 
             def generate_content() -> Any:
@@ -357,12 +455,13 @@ Respond with JSON only:
                 "analyzed_image": analyzed_image,
             }
 
-    def _build_reddit_prompt(self, post: Dict[str, Any], image_failed: bool = False) -> str:
+    def _build_reddit_prompt(self, post: Dict[str, Any], image_failed: bool = False, image_url: str = "") -> str:
         """Build prompt for text-only Reddit post analysis.
 
         Args:
             post: Dictionary with post data
             image_failed: Whether image download failed for this post
+            image_url: URL of the image that failed to download
 
         Returns:
             Formatted prompt string
@@ -376,10 +475,9 @@ Subreddit: r/{post.get("subreddit", "")}
 Flair: {post.get("flair", "None")}"""
 
         # Add image failure context if applicable
-        if image_failed:
-            url = post.get("url", "")
+        if image_failed and image_url:
             base_prompt += f"""
-Image URL (unavailable for analysis): {url}
+Image URL (unavailable for analysis): {image_url}
 Note: The image at the URL above could not be downloaded for analysis. 
 Please analyze the sentiment based on the title, context, and any available text."""
 
