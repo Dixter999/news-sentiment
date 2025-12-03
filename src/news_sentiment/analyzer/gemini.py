@@ -5,6 +5,7 @@ This module provides sentiment analysis for economic events
 using Google's Gemini generative AI model.
 """
 
+import io
 import json
 import os
 import re
@@ -12,7 +13,9 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 import google.generativeai as genai
+import requests
 from google.api_core.exceptions import ResourceExhausted
+from PIL import Image
 
 
 class SentimentAnalyzer:
@@ -48,6 +51,43 @@ Consider:
 Respond with JSON only:
 {{"score": <float>, "reasoning": "<brief explanation>"}}
 """
+
+    # Image analysis prompt for Reddit posts with charts/screenshots
+    IMAGE_PROMPT_TEMPLATE = """
+Analyze this trading/financial image along with the post context.
+
+Post Title: {title}
+Subreddit: {subreddit}
+Post Text: {body}
+
+Analyze the image for:
+1. Chart patterns (if it's a chart): trend direction, support/resistance, indicators
+2. Trading positions: profit/loss shown, position size, entry/exit points
+3. Market sentiment signals: bullish/bearish patterns, volume, momentum
+4. Any text/numbers in the image: price targets, percentages, key figures
+
+Based on the image AND text context, provide a sentiment score.
+
+Score from -1.0 (strongly bearish market sentiment) to 1.0 (strongly bullish sentiment).
+Consider: Does this suggest markets going up or down? Is the trader winning or losing?
+For profit screenshots: winning = bullish sentiment indicator
+For chart analysis: uptrend = bullish, downtrend = bearish
+
+Respond with JSON only:
+{{"score": <float>, "reasoning": "<brief explanation based on image analysis>"}}
+"""
+
+    # Patterns that indicate image URLs
+    IMAGE_URL_PATTERNS = [
+        r"i\.redd\.it",
+        r"i\.imgur\.com",
+        r"preview\.redd\.it",
+        r"\.jpeg$",
+        r"\.jpg$",
+        r"\.png$",
+        r"\.gif$",
+        r"\.webp$",
+    ]
 
     def __init__(
         self,
@@ -209,6 +249,162 @@ Respond with JSON only:
             Score clamped to valid range
         """
         return max(-1.0, min(1.0, score))
+
+    def is_image_url(self, url: Optional[str]) -> bool:
+        """Check if URL points to an image.
+
+        Args:
+            url: URL to check
+
+        Returns:
+            True if URL matches image patterns
+        """
+        if not url:
+            return False
+        url_lower = url.lower()
+        return any(re.search(pattern, url_lower) for pattern in self.IMAGE_URL_PATTERNS)
+
+    def _download_image(self, url: str, timeout: int = 10) -> Optional[Image.Image]:
+        """Download image from URL.
+
+        Args:
+            url: Image URL
+            timeout: Request timeout in seconds
+
+        Returns:
+            PIL Image object or None if download fails
+        """
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=timeout)
+            response.raise_for_status()
+
+            # Load image from bytes
+            image = Image.open(io.BytesIO(response.content))
+            # Convert to RGB if necessary (for RGBA/P mode images)
+            if image.mode in ("RGBA", "P"):
+                image = image.convert("RGB")
+            return image
+        except Exception:
+            return None
+
+    def analyze_reddit_post(
+        self,
+        post: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Analyze sentiment for a Reddit post, with image support.
+
+        If the post URL points to an image, performs multimodal analysis.
+        Otherwise falls back to text-only analysis.
+
+        Args:
+            post: Dictionary containing post data with keys:
+                - title: Post title
+                - subreddit: Subreddit name
+                - body: Post body text (optional)
+                - url: Post URL (may be image)
+                - flair: Post flair (optional)
+
+        Returns:
+            Dictionary with:
+                - sentiment_score: Float from -1.0 to 1.0
+                - raw_response: Dict with reasoning and full_response
+                - analyzed_image: Boolean indicating if image was analyzed
+        """
+        url = post.get("url", "")
+        analyzed_image = False
+
+        try:
+            # Check if post has an image URL
+            if self.is_image_url(url):
+                image = self._download_image(url)
+                if image:
+                    # Multimodal analysis with image
+                    prompt = self.IMAGE_PROMPT_TEMPLATE.format(
+                        title=post.get("title", ""),
+                        subreddit=post.get("subreddit", ""),
+                        body=post.get("body", "") or "(no text)",
+                    )
+
+                    def generate_with_image() -> Any:
+                        return self.model.generate_content([prompt, image])
+
+                    response = self._retry_with_backoff(generate_with_image)
+                    result = self._parse_response(response.text)
+                    result["analyzed_image"] = True
+                    return result
+
+            # Fallback to text-only analysis
+            prompt = self._build_reddit_prompt(post)
+
+            def generate_content() -> Any:
+                return self.model.generate_content(prompt)
+
+            response = self._retry_with_backoff(generate_content)
+            result = self._parse_response(response.text)
+            result["analyzed_image"] = False
+            return result
+
+        except Exception as e:
+            return {
+                "sentiment_score": 0.0,
+                "raw_response": {
+                    "error": str(e),
+                    "full_response": "",
+                },
+                "analyzed_image": analyzed_image,
+            }
+
+    def _build_reddit_prompt(self, post: Dict[str, Any], image_failed: bool = False) -> str:
+        """Build prompt for text-only Reddit post analysis.
+
+        Args:
+            post: Dictionary with post data
+            image_failed: Whether image download failed for this post
+
+        Returns:
+            Formatted prompt string
+        """
+        # Build the base prompt
+        base_prompt = f"""
+Analyze this Reddit post for market sentiment.
+
+Title: {post.get("title", "")}
+Subreddit: r/{post.get("subreddit", "")}
+Flair: {post.get("flair", "None")}"""
+
+        # Add image failure context if applicable
+        if image_failed:
+            url = post.get("url", "")
+            base_prompt += f"""
+Image URL (unavailable for analysis): {url}
+Note: The image at the URL above could not be downloaded for analysis. 
+Please analyze the sentiment based on the title, context, and any available text."""
+
+        # Add the post text
+        base_prompt += f"""
+Post Text: {post.get("body", "") or "(no text)"}
+
+Score the market sentiment from -1.0 (strongly bearish) to 1.0 (strongly bullish).
+
+Consider:
+- Is the post expressing bullish or bearish sentiment?
+- What market direction does the discussion suggest?
+- Are people optimistic or pessimistic about price movement?"""
+
+        # Add special instruction for image-failed posts
+        if image_failed:
+            base_prompt += """
+- Since the image is unavailable, focus on analyzing sentiment from the title and any textual context"""
+
+        base_prompt += """
+
+Respond with JSON only:
+{{"score": <float>, "reasoning": "<brief explanation>"}}
+"""
+        return base_prompt
 
     def _retry_with_backoff(
         self,
