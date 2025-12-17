@@ -230,6 +230,7 @@ def analyze_reddit_posts(
 
     Queries posts that have content but no sentiment score,
     analyzes them using Gemini, and stores the results.
+    Supports multimodal analysis for posts with images.
 
     Args:
         analyzer: SentimentAnalyzer instance to use for analysis
@@ -239,6 +240,7 @@ def analyze_reddit_posts(
         Number of posts successfully analyzed
     """
     analyzed_count = 0
+    image_count = 0
 
     with get_session() as session:
         # Query posts without sentiment score
@@ -248,10 +250,17 @@ def analyze_reddit_posts(
 
         for post in unscored:
             try:
-                result = analyzer.analyze(post.to_dict_for_gemini())
+                # Use multimodal analysis which handles both text and images
+                result = analyzer.analyze_reddit_post(post.to_dict_for_gemini())
                 post.sentiment_score = result["sentiment_score"]
                 post.raw_response = result["raw_response"]
-                print(f"  {post.title[:50]}: {result['sentiment_score']:.2f}")
+
+                # Track image analysis
+                img_flag = " [IMG]" if result.get("analyzed_image") else ""
+                if result.get("analyzed_image"):
+                    image_count += 1
+
+                print(f"  {post.title[:50]}: {result['sentiment_score']:.2f}{img_flag}")
                 analyzed_count += 1
             except Exception as e:
                 logger.warning(f"Failed to analyze post {post.title[:30]}: {e}")
@@ -259,6 +268,9 @@ def analyze_reddit_posts(
 
         if test_run:
             session.rollback()
+
+    if image_count > 0:
+        logger.info(f"Analyzed {image_count} posts with images (multimodal)")
 
     return analyzed_count
 

@@ -201,6 +201,7 @@ class RedditPost(Base):
 
         Returns only the fields needed for sentiment analysis,
         excluding internal fields like id, timestamps, and existing scores.
+        Includes URL for multimodal image analysis support.
 
         Returns:
             Dictionary with post data for Gemini analysis
@@ -209,6 +210,7 @@ class RedditPost(Base):
             "subreddit": self.subreddit,
             "title": self.title,
             "body": self.body,
+            "url": self.url,  # Included for image analysis
             "flair": self.flair,
             "score": self.score,
             "num_comments": self.num_comments,

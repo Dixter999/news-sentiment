@@ -1,0 +1,31 @@
+2025-12-03 08:17:12,097 - reprocess_failed_images - INFO - Starting failed image reprocessing script
+2025-12-03 08:17:12,097 - reprocess_failed_images - INFO - Arguments: dry_run=False, batch_size=5, limit=10, log_file=reprocess_20251203_081712.log
+2025-12-03 08:17:12,193 - reprocess_failed_images - INFO - Querying for posts with sentiment_score = 0.0...
+2025-12-03 08:17:12,830 - reprocess_failed_images - INFO - Found 211 posts with 0.0 sentiment
+2025-12-03 08:17:12,830 - reprocess_failed_images - INFO - Filtering for 'no information' patterns...
+2025-12-03 08:17:12,831 - reprocess_failed_images - INFO - Found 153 posts matching patterns
+2025-12-03 08:17:12,831 - reprocess_failed_images - INFO - Found 28 image posts to reprocess
+2025-12-03 08:17:12,831 - reprocess_failed_images - INFO - Initializing sentiment analyzer...
+2025-12-03 08:17:12,831 - reprocess_failed_images - INFO - Starting reprocessing of 28 posts...
+2025-12-03 08:17:19,641 - reprocess_failed_images - INFO - Successfully reprocessed 1pcfgeh
+2025-12-03 08:17:23,547 - reprocess_failed_images - INFO - Successfully reprocessed 1pc0dqu
+2025-12-03 08:17:26,136 - reprocess_failed_images - INFO - Successfully reprocessed 1pbez7g
+2025-12-03 08:17:31,484 - reprocess_failed_images - INFO - Successfully reprocessed 1pc0eov
+2025-12-03 08:17:33,837 - reprocess_failed_images - INFO - Successfully reprocessed 1pccpol
+2025-12-03 08:17:35,569 - reprocess_failed_images - INFO - Successfully reprocessed 1pc0ffw
+2025-12-03 08:17:38,567 - reprocess_failed_images - INFO - Successfully reprocessed 1pbg9dv
+2025-12-03 08:17:43,825 - reprocess_failed_images - INFO - Successfully reprocessed 1pcfs6f
+2025-12-03 08:17:48,709 - reprocess_failed_images - INFO - Successfully reprocessed 1pbfzqb
+2025-12-03 08:17:52,788 - reprocess_failed_images - INFO - Successfully reprocessed 1pbncih
+2025-12-03 08:17:52,788 - reprocess_failed_images - INFO - Final statistics: {
+  "total_found": 211,
+  "filtered": 153,
+  "image_posts": 28,
+  "would_process": 28,
+  "processed": 10,
+  "successful": 10,
+  "failed": 0,
+  "skipped": 125,
+  "success_rate": 100.0,
+  "duration_seconds": 40.59535193443298
+}

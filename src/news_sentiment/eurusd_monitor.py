@@ -23,7 +23,7 @@ from news_sentiment.database import EconomicEvent, RedditPost, get_session
 
 
 class EURUSDMonitor:
-    """Continuous EUR/USD sentiment monitor."""
+    """Continuous Forex sentiment monitor for multiple currency pairs."""
 
     # Error patterns that indicate retryable model errors
     MODEL_ERROR_PATTERNS = [
@@ -41,6 +41,10 @@ class EURUSDMonitor:
         "Economics",
         "wallstreetbets",
     ]
+
+    # Supported currency pairs and their currencies
+    SUPPORTED_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "EURJPY"]
+    SUPPORTED_CURRENCIES = ["EUR", "USD", "GBP", "JPY"]
 
     def __init__(self, interval_minutes: int = 30, reddit_limit: int = 25):
         self.interval_minutes = interval_minutes
@@ -65,9 +69,11 @@ class EURUSDMonitor:
     def _print_header(self):
         """Print monitor header."""
         print("=" * 70)
-        print("EUR/USD SENTIMENT MONITOR")
+        print("FOREX SENTIMENT MONITOR")
+        print(f"Pairs: {', '.join(self.SUPPORTED_PAIRS)}")
         print(f"Interval: {self.interval_minutes} minutes | Reddit limit: {self.reddit_limit}/subreddit")
         print(f"Subreddits: {', '.join(self.FOREX_SUBREDDITS)}")
+        print("Image Analysis: Enabled (multimodal for charts/screenshots)")
         print("Auto-reprocess: Enabled (detects and retries model errors)")
         print("=" * 70)
         print(f"[{self._timestamp()}] Monitor started. Press Ctrl+C to stop.\n")
@@ -82,8 +88,8 @@ class EURUSDMonitor:
                 print(f"[{self._timestamp()}] No new events found")
                 return 0
 
-            # Filter for EUR and USD events only
-            eur_usd_events = [e for e in events if e.get("currency") in ("EUR", "USD")]
+            # Filter for supported currencies (EUR, USD, GBP, JPY)
+            eur_usd_events = [e for e in events if e.get("currency") in self.SUPPORTED_CURRENCIES]
 
             with get_session() as session:
                 stored = 0
@@ -125,7 +131,7 @@ class EURUSDMonitor:
             if stored > 0 or updated > 0:
                 print(f"[{self._timestamp()}] Events: {stored} new, {updated} updated")
             else:
-                print(f"[{self._timestamp()}] No new EUR/USD events")
+                print(f"[{self._timestamp()}] No new forex events")
             return stored
 
         except Exception as e:
@@ -182,10 +188,10 @@ class EURUSDMonitor:
             analyzed = 0
 
             with get_session() as session:
-                # Analyze unscored economic events (EUR/USD only)
+                # Analyze unscored economic events for supported currencies
                 pending_events = session.query(EconomicEvent).filter(
                     EconomicEvent.sentiment_score.is_(None),
-                    EconomicEvent.currency.in_(["EUR", "USD"])
+                    EconomicEvent.currency.in_(self.SUPPORTED_CURRENCIES)
                 ).limit(20).all()
 
                 for event in pending_events:
@@ -205,7 +211,8 @@ class EURUSDMonitor:
 
                 for post in pending_posts:
                     try:
-                        result = analyzer.analyze(post.to_dict_for_gemini())
+                        # Use multimodal analysis for posts (supports images)
+                        result = analyzer.analyze_reddit_post(post.to_dict_for_gemini())
                         post.sentiment_score = result["sentiment_score"]
                         post.raw_response = result["raw_response"]
                         if "symbols" in result:
@@ -213,6 +220,9 @@ class EURUSDMonitor:
                         if "symbol_sentiments" in result:
                             post.symbol_sentiments = result["symbol_sentiments"]
                         analyzed += 1
+                        img_flag = " [IMG]" if result.get("analyzed_image") else ""
+                        if img_flag:
+                            print(f"[{self._timestamp()}] Analyzed image post: {post.title[:40]}...")
                         time.sleep(0.3)  # Rate limiting
                     except Exception as e:
                         print(f"[{self._timestamp()}] Post analysis error: {e}")
@@ -228,37 +238,41 @@ class EURUSDMonitor:
             return 0
 
     def _display_sentiment(self):
-        """Display current EUR/USD sentiment."""
-        try:
-            result = get_forex_pair_sentiment("EURUSD", hours_back=168)  # 7 days
+        """Display current sentiment for all supported pairs."""
+        print()
+        print("-" * 70)
+        print(f"[{self._timestamp()}] FOREX SENTIMENT SUMMARY (7 days)")
+        print("-" * 70)
 
-            if "error" in result:
-                print(f"[{self._timestamp()}] Sentiment error: {result['error']}")
-                return
+        for pair in self.SUPPORTED_PAIRS:
+            try:
+                result = get_forex_pair_sentiment(pair, hours_back=168)  # 7 days
 
-            # Determine sentiment emoji and description
-            score = result["sentiment"]
-            if score > 0.3:
-                emoji, desc = "🟢", "BULLISH"
-            elif score < -0.3:
-                emoji, desc = "🔴", "BEARISH"
-            else:
-                emoji, desc = "⚪", "NEUTRAL"
+                if "error" in result:
+                    print(f"  {pair}: Error - {result['error']}")
+                    continue
 
-            base = result["base"]
-            quote = result["quote"]
+                # Determine sentiment emoji and description
+                score = result["sentiment"]
+                if score > 0.3:
+                    emoji, desc = "🟢", "BULLISH"
+                elif score < -0.3:
+                    emoji, desc = "🔴", "BEARISH"
+                else:
+                    emoji, desc = "⚪", "NEUTRAL"
 
-            print()
-            print("-" * 70)
-            print(f"{emoji} EUR/USD: {score:+.3f} ({desc})")
-            print(f"   EUR: {base['sentiment']:+.3f} ({base['event_count']} events)")
-            print(f"   USD: {quote['sentiment']:+.3f} ({quote['event_count']} events)")
-            print(f"   Signal: {result['signal']}")
-            print("-" * 70)
-            print()
+                base = result["base"]
+                quote = result["quote"]
 
-        except Exception as e:
-            print(f"[{self._timestamp()}] Sentiment display error: {e}")
+                print(f"  {emoji} {pair}: {score:+.3f} ({desc})")
+                print(f"       {pair[:3]}: {base['sentiment']:+.3f} ({base['event_count']} events) | {pair[3:]}: {quote['sentiment']:+.3f} ({quote['event_count']} events)")
+                print(f"       Signal: {result['signal']}")
+
+            except Exception as e:
+                print(f"  {pair}: Error - {e}")
+
+        print("-" * 70)
+        print()
 
     def _is_model_error(self, raw_response: dict | None) -> bool:
         """Check if raw_response contains a retryable model error."""
@@ -297,14 +311,16 @@ class EURUSDMonitor:
 
                 for post in posts_to_retry:
                     try:
-                        result = analyzer.analyze(post.to_dict_for_gemini())
+                        # Use multimodal analysis for posts (supports images)
+                        result = analyzer.analyze_reddit_post(post.to_dict_for_gemini())
 
                         # Only update if successful (no error in response)
                         if not result["raw_response"].get("error"):
                             post.sentiment_score = result["sentiment_score"]
                             post.raw_response = result["raw_response"]
                             reprocessed += 1
-                            print(f"[{self._timestamp()}] ✓ Reprocessed post id={post.id}")
+                            img_flag = " [IMG]" if result.get("analyzed_image") else ""
+                            print(f"[{self._timestamp()}] ✓ Reprocessed post id={post.id}{img_flag}")
                         time.sleep(0.3)
                     except Exception as e:
                         print(f"[{self._timestamp()}] Reprocess error (post {post.id}): {e}")
@@ -312,7 +328,7 @@ class EURUSDMonitor:
                 # Find economic events with errors in raw_response (filter in SQL)
                 failed_events = session.query(EconomicEvent).filter(
                     EconomicEvent.raw_response.isnot(None),
-                    EconomicEvent.currency.in_(["EUR", "USD"]),
+                    EconomicEvent.currency.in_(self.SUPPORTED_CURRENCIES),
                     cast(EconomicEvent.raw_response, String).like('%"error":%')
                 ).limit(20).all()
 

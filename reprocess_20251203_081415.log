@@ -1,0 +1,17 @@
+2025-12-03 08:14:15,542 - reprocess_failed_images - INFO - Starting failed image reprocessing script
+2025-12-03 08:14:15,543 - reprocess_failed_images - INFO - Arguments: dry_run=True, batch_size=10, limit=5, log_file=reprocess_20251203_081415.log
+2025-12-03 08:14:15,672 - reprocess_failed_images - INFO - Querying for posts with sentiment_score = 0.0...
+2025-12-03 08:14:16,303 - reprocess_failed_images - INFO - Found 211 posts with 0.0 sentiment
+2025-12-03 08:14:16,303 - reprocess_failed_images - INFO - Filtering for 'no information' patterns...
+2025-12-03 08:14:16,303 - reprocess_failed_images - INFO - Found 153 posts matching patterns
+2025-12-03 08:14:16,304 - reprocess_failed_images - INFO - Found 28 image posts to reprocess
+2025-12-03 08:14:16,304 - reprocess_failed_images - INFO - Final statistics: {
+  "total_found": 211,
+  "filtered": 153,
+  "image_posts": 28,
+  "would_process": 28,
+  "processed": 0,
+  "successful": 0,
+  "failed": 0,
+  "skipped": 125
+}
