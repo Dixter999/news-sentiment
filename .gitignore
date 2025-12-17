@@ -45,6 +45,12 @@ node_modules/
 .pytest_cache/
 .coverage
 htmlcov/
+reprocess_*.log
+test_report_*.json
+analyze_*.py
+detailed_*.py
+*_ANALYSIS_REPORT.md
+scripts/.backfill_checkpoint.json
 
 # Playwright
 playwright-report/
