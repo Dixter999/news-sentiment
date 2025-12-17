@@ -194,33 +194,25 @@ All rule files in `.claude/rules/` define mandatory behaviors and must be follow
 
 - **agent-mandatory.md** - MANDATORY agent usage for all non-trivial tasks. READ THIS FIRST!
 - **tdd.enforcement.md** - Test-Driven Development cycle (RED-GREEN-REFACTOR)
-- **pipeline-mandatory.md** - Required pipelines for errors, features, bugs, code search, and log analysis
+- **scraper-security.md** - API keys, rate limiting, data privacy for scrapers
+- **scraper-code-quality.md** - Code patterns specific to web scraping
 
 ### Core Development Rules
 
 - **naming-conventions.md** - Naming standards, code quality requirements, and prohibited patterns
-- **context-optimization.md** - Agent usage patterns for context preservation (<20% data return)
+- **code-quality-standards.md** - Language-specific quality standards
 - **development-workflow.md** - Development patterns, search-before-create, and best practices
-- **command-pipelines.md** - Command sequences, prerequisites, and PM system workflows
+- **testing-standards.md** - Testing requirements and patterns
 
 ### Operational Rules
 
-- **agent-coordination.md** - Multi-agent parallel work with file-level coordination
-- **agent-coordination-extended.md** - Extended coordination patterns for complex workflows
-- **git-strategy.md** - Unified Git branch strategy, naming conventions, and merge workflows
-- **datetime.md** - Real datetime requirements using ISO 8601 UTC format (no placeholders)
-- **frontmatter-operations.md** - YAML frontmatter standards for PRDs, epics, and tasks
-- **strip-frontmatter.md** - Metadata removal for GitHub sync and external communication
-- **github-operations.md** - GitHub CLI safety and critical template repository protection
-- **no-pr-workflow.md** - Direct main branch development without PRs
+- **git-strategy.md** - Git branch strategy and merge workflows
+- **github-operations.md** - GitHub CLI operations and safety
+- **datetime.md** - Real datetime requirements using ISO 8601 UTC format
 
-### Technical Rules
+### Security Rules
 
-- **test-execution.md** - Testing standards requiring test-runner agent, no mocks, real services only
-- **standard-patterns.md** - Command consistency, fail-fast philosophy, and minimal validation
-- **use-ast-grep.md** - Structural code search using AST over regex for language-aware patterns
-- **database-pipeline.md** - Database migrations, query optimization, and backup procedures
-- **infrastructure-pipeline.md** - IaC deployments, container builds, and cloud operations
+- **security-checklist.md** - Pre-deployment security checklist
 
 ### Code Formatting & Quality
 
@@ -456,9 +448,9 @@ git log --oneline
 - Skipping any phase of TDD cycle
 - Tests written after implementation
 
-## CONTEXT OPTIMIZATION RULES
+## AGENT USAGE REQUIREMENTS
 
-See **`.claude/rules/context-optimization.md`** for detailed context preservation patterns and agent usage requirements.
+Use specialized agents for context optimization and preservation. See **`.claude/rules/agent-mandatory.md`** for complete requirements.
 
 ## ERROR HANDLING PIPELINE
 
@@ -495,7 +487,7 @@ See **`.claude/rules/development-workflow.md`** for complete error handling and 
 
 ### Testing
 
-See **`.claude/rules/test-execution.md`** for testing standards and requirements.
+See **`.claude/rules/testing-standards.md`** for testing requirements and the **`.claude/rules/tdd.enforcement.md`** for TDD cycle enforcement.
 
 ## Tone and Behavior
 
