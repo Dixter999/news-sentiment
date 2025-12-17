@@ -85,3 +85,15 @@ These rules were archived because they are **not relevant** to a scraper project
 ## Restoration
 
 If any of these rules become relevant (e.g., you build a web UI for the scraped data), simply move them back to the parent `rules/` directory.
+
+## Archive Location (Updated 2025-12-17)
+
+**Previous location:** `.claude/rules/archived-2025-01/`
+**Current location:** `./archived-rules-2025-01/` (project root)
+
+**Reason for move:** The `.claudeignore` was not properly excluding files from memory when they were inside the `.claude/` directory. Moving them to project root ensures they are completely excluded from Claude Code's context.
+
+To restore a rule:
+```bash
+mv archived-rules-2025-01/filename.md .claude/rules/
+```
